@@ -1,0 +1,5 @@
+path: /home/nikunj/Desktop/ProgramFiles/NepaliDevanagariVision/Object_Detection/data
+train: images/train
+validation: images/validation
+names:
+  0: line
