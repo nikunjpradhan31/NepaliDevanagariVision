@@ -208,6 +208,8 @@ __marimo__/
 
 *.pdf
 
-
 Object_Detection/data
 NepaliDevanagariText
+*.zip
+CRNN/crops
+CRNN/format_scripts/data
