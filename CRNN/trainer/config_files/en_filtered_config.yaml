@@ -11,13 +11,13 @@ experiment_name: 'ne'
 train_data: 'all_data'
 valid_data: 'all_data/dataset/val'
 manualSeed: 1111
-workers: 1
-batch_size: 64 #32
-num_iter: 300000
-valInterval: 20000
+workers: 8
+batch_size: 32 #32
+num_iter: 20000
+valInterval: 200
 saved_model: '' #'saved_models/en_filtered/iter_300000.pth'
 FT: False
-optim: Adam # default is Adadelta
+optim: adam # default is Adadelta
 lr: 0.0005
 beta1: 0.9
 rho: 0.95
@@ -37,10 +37,10 @@ PAD: True
 contrast_adjust: 0.0
 data_filtering_off: False
 # Model Architecture
-Transformation: 'TPS'
+Transformation: 'None'
 FeatureExtraction: 'ResNet'
 SequenceModeling: 'BiLSTM'
-Prediction: 'CTC'
+Prediction: 'Attn'
 num_fiducial: 20
 input_channel: 1
 output_channel: 256
