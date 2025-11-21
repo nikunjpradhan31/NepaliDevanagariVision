@@ -208,7 +208,7 @@ __marimo__/
 
 *.pdf
 
-Object_Detection/data
+CNN_Detection/data
 NepaliDevanagariText
 *.zip
 CRNN/crops
@@ -217,5 +217,5 @@ CRNN/trainer_CRNN/all_data
 CRNN/trainer_CRNN/saved_models
 CRNN/trainer_CRNN/validation_outputs
 
-Object_Detection/runs
+CNN_Detection/runs
 s
