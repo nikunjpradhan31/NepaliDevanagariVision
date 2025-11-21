@@ -12,20 +12,24 @@ from torch.cuda.amp import autocast, GradScaler
 import numpy as np
 from nltk.metrics.distance import edit_distance
 import torch.nn.functional as F
+from Levenshtein import distance as lev_distance
+from PIL import Image
 
 from utils import CTCLabelConverter, AttnLabelConverter, Averager
 from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from model import Model
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 def count_parameters(model):
     print("Modules, Parameters")
     total_params = 0
     for name, parameter in model.named_parameters():
-        if not parameter.requires_grad: continue
+        if not parameter.requires_grad:
+            continue
         param = parameter.numel()
-        #table.add_row([name, param])
-        total_params+=param
+        total_params += param
         print(name, param)
     print(f"Total Trainable Params: {total_params}")
     return total_params
@@ -40,6 +44,8 @@ def validation(model, criterion, evaluation_loader, converter, opt, device):
     valid_loss_avg = Averager()
 
     for i, (image_tensors, labels) in enumerate(evaluation_loader):
+        if i >= 100:
+            break
         batch_size = image_tensors.size(0)
         length_of_data = length_of_data + batch_size
         image = image_tensors.to(device)
@@ -73,8 +79,7 @@ def validation(model, criterion, evaluation_loader, converter, opt, device):
             forward_time = time.time() - start_time
 
             preds = preds[:, :text_for_loss.shape[1] - 1, :]
-            target = text_for_loss[:, 1:].to(device)
-  # without [GO] Symbol
+            target = text_for_loss[:, 1:].to(device)  # without [GO] Symbol
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
 
             # select max probabilty (greedy decoding) then decode index to character
@@ -89,7 +94,7 @@ def validation(model, criterion, evaluation_loader, converter, opt, device):
         preds_prob = F.softmax(preds, dim=2)
         preds_max_prob, _ = preds_prob.max(dim=2)
         confidence_score_list = []
-        
+
         for gt, pred, pred_max_prob in zip(labels, preds_str, preds_max_prob):
             if 'Attn' in opt.Prediction:
                 gt = gt[:gt.find('[s]')]
@@ -108,30 +113,68 @@ def validation(model, criterion, evaluation_loader, converter, opt, device):
             else:
                 norm_ED += edit_distance(pred, gt) / len(gt)
             '''
-            
-            # ICDAR2019 Normalized Edit Distance 
-            if len(gt) == 0 or len(pred) ==0:
+
+            # ICDAR2019 Normalized Edit Distance
+            if len(gt) == 0 or len(pred) == 0:
                 norm_ED += 0
-            elif len(gt) > len(pred):
-                norm_ED += 1 - edit_distance(pred, gt) / len(gt)
+            # elif len(gt) > len(pred):
+            #     norm_ED += 1 - edit_distance(pred, gt) / len(gt)
+            # else:
+            #     norm_ED += 1 - edit_distance(pred, gt) / len(pred)
             else:
-                norm_ED += 1 - edit_distance(pred, gt) / len(pred)
+                norm_ED += 1 - lev_distance(pred, gt) / max(len(gt), len(pred), 1)
 
             # calculate confidence score (= multiply of pred_max_prob)
             try:
                 confidence_score = pred_max_prob.cumprod(dim=0)[-1]
-            except:
+            except Exception:
                 confidence_score = 0  # for empty pred case, when prune after "end of sentence" token ([s])
             confidence_score_list.append(confidence_score)
             # print(pred, gt, pred==gt, confidence_score)
 
-    accuracy = n_correct / float(length_of_data) * 100
-    norm_ED = norm_ED / float(length_of_data) # ICDAR2019 Normalized Edit Distance
+                # ---- Save images + prediction/GT every 20 steps ----
+        
+        if i % 50 == 0:
+            output_dir = "validation_outputs"
+            os.makedirs(output_dir, exist_ok=True)
 
+            # Move batch to CPU for saving (non-blocking)
+            batch_cpu = image_tensors.cpu()
+
+            for b in range(batch_size):
+                img = batch_cpu[b]  # CHW
+                gt_text = labels[b]
+                pred_text = preds_str[b]
+
+               # Convert CHW float tensor → HWC uint8 array
+                img_np = (img.permute(1, 2, 0).numpy() * 255).clip(0, 255).astype("uint8")
+
+                # Fix for grayscale (H, W, 1)
+                if img_np.ndim == 3 and img_np.shape[2] == 1:
+                    img_np = img_np[:, :, 0]  # remove singleton channel
+                    pil_img = Image.fromarray(img_np, mode="L")
+                else:
+                    pil_img = Image.fromarray(img_np)
+
+
+                img_name = f"val_{i}_{b}.png"
+                txt_name = f"val_{i}_{b}.txt"
+
+                pil_img.save(os.path.join(output_dir, img_name))
+
+                with open(os.path.join(output_dir, txt_name), "w", encoding="utf-8") as f:
+                    f.write(f"prediction: {pred_text}\n")
+                    f.write(f"ground_truth: {gt_text}\n")
+
+            
+    accuracy = n_correct / float(length_of_data) * 100
+    norm_ED = norm_ED / float(length_of_data)  # ICDAR2019 Normalized Edit Distance
+
+    
     return valid_loss_avg.val(), accuracy, norm_ED, preds_str, confidence_score_list, labels, infer_time, length_of_data
 
 
-def train(opt, show_number = 2, amp=False):
+def train(opt, show_number=2, amp=False):
     """ dataset preparation """
     if not opt.data_filtering_off:
         print('Filtering the images containing characters which are not in opt.character')
@@ -145,15 +188,17 @@ def train(opt, show_number = 2, amp=False):
     AlignCollate_valid = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD, contrast_adjust=opt.contrast_adjust)
     valid_dataset, valid_dataset_log = hierarchical_dataset(root=opt.valid_data, opt=opt)
     valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, batch_size=min(32, opt.batch_size),
-        shuffle=True,  # 'True' to check training progress with validation function.
-        num_workers=int(opt.workers), prefetch_factor=512,
+        valid_dataset, 
+        #batch_size=min(32, opt.batch_size),
+        batch_size=64,
+        shuffle=False,  # 'True' to check training progress with validation function.
+        num_workers=int(opt.workers), prefetch_factor=2,
         collate_fn=AlignCollate_valid, pin_memory=True)
     log.write(valid_dataset_log)
     print('-' * 80)
     log.write('-' * 80 + '\n')
     log.close()
-    
+
     """ model configuration """
     if 'CTC' in opt.Prediction:
         converter = CTCLabelConverter(opt.character)
@@ -169,24 +214,24 @@ def train(opt, show_number = 2, amp=False):
           opt.SequenceModeling, opt.Prediction)
 
     if opt.saved_model != '':
-        pretrained_dict = torch.load(opt.saved_model)
+        pretrained_dict = torch.load(opt.saved_model, weights_only=False)
         if opt.new_prediction:
-            model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
-        
-        model = torch.nn.DataParallel(model).to(device) 
+            model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))
+
+        model = torch.nn.DataParallel(model).to(device)
         print(f'loading pretrained model from {opt.saved_model}')
         if opt.FT:
             model.load_state_dict(pretrained_dict, strict=False)
         else:
             model.load_state_dict(pretrained_dict)
         if opt.new_prediction:
-            model.module.Prediction = nn.Linear(model.module.SequenceModeling_output, opt.num_class)  
+            model.module.Prediction = nn.Linear(model.module.SequenceModeling_output, opt.num_class)
             for name, param in model.module.Prediction.named_parameters():
                 if 'bias' in name:
                     init.constant_(param, 0.0)
                 elif 'weight' in name:
                     init.kaiming_normal_(param)
-            model = model.to(device) 
+            model = model.to(device)
     else:
         # weight initialization
         for name, param in model.named_parameters():
@@ -203,12 +248,12 @@ def train(opt, show_number = 2, amp=False):
                     param.data.fill_(1)
                 continue
         model = torch.nn.DataParallel(model).to(device)
-    
-    model.train() 
+
+    model.train()
     print("Model:")
     print(model)
     count_parameters(model)
-    
+
     """ setup loss """
     if 'CTC' in opt.Prediction:
         criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
@@ -225,9 +270,9 @@ def train(opt, show_number = 2, amp=False):
         if opt.freeze_SequenceModeling:
             for param in model.module.SequenceModeling.parameters():
                 param.requires_grad = False
-    except:
+    except Exception:
         pass
-    
+
     # filter that only require gradient decent
     filtered_parameters = []
     params_num = []
@@ -238,8 +283,8 @@ def train(opt, show_number = 2, amp=False):
     # [print(name, p.numel()) for name, p in filter(lambda p: p[1].requires_grad, model.named_parameters())]
 
     # setup optimizer
-    if opt.optim=='adam':
-        #optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999))
+    if opt.optim == 'adam':
+        # optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999))
         optimizer = optim.Adam(filtered_parameters)
     else:
         optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps)
@@ -263,7 +308,7 @@ def train(opt, show_number = 2, amp=False):
         try:
             start_iter = int(opt.saved_model.split('_')[-1].split('.')[0])
             print(f'continue to train, start_iter: {start_iter}')
-        except:
+        except Exception:
             pass
 
     start_time = time.time()
@@ -272,12 +317,12 @@ def train(opt, show_number = 2, amp=False):
     i = start_iter
 
     scaler = GradScaler()
-    t1= time.time()
-        
-    while(True):
+    t1 = time.time()
+
+    while (True):
         # train part
         optimizer.zero_grad(set_to_none=True)
-        
+
         if amp:
             with autocast():
                 image_tensors, labels = train_dataset.get_batch()
@@ -318,20 +363,20 @@ def train(opt, show_number = 2, amp=False):
                 target = text[:, 1:]  # without [GO] Symbol
                 cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
             cost.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip) 
+            torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)
             optimizer.step()
         loss_avg.add(cost)
 
         # validation part
-        if (i % opt.valInterval == 0) and (i!=0):
-            print('training time: ', time.time()-t1)
-            t1=time.time()
+        if (i % opt.valInterval == 0) and (i != 0):
+            print('training time: ', time.time() - t1)
+            t1 = time.time()
             elapsed_time = time.time() - start_time
             # for log
             with open(f'./saved_models/{opt.experiment_name}/log_train.txt', 'a', encoding="utf8") as log:
                 model.eval()
                 with torch.no_grad():
-                    valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels,\
+                    valid_loss, current_accuracy, current_norm_ED, preds, confidence_score, labels, \
                     infer_time, length_of_data = validation(model, criterion, valid_loader, converter, opt, device)
                 model.train()
 
@@ -358,28 +403,31 @@ def train(opt, show_number = 2, amp=False):
                 dashed_line = '-' * 80
                 head = f'{"Ground Truth":25s} | {"Prediction":25s} | Confidence Score & T/F'
                 predicted_result_log = f'{dashed_line}\n{head}\n{dashed_line}\n'
-                
-                #show_number = min(show_number, len(labels))
-                
-                start = random.randint(0,len(labels) - show_number )    
-                for gt, pred, confidence in zip(labels[start:start+show_number], preds[start:start+show_number], confidence_score[start:start+show_number]):
-                    if 'Attn' in opt.Prediction:
-                        gt = gt[:gt.find('[s]')]
-                        pred = pred[:pred.find('[s]')]
 
-                    predicted_result_log += f'{gt:25s} | {pred:25s} | {confidence:0.4f}\t{str(pred == gt)}\n'
+                show_number = min(show_number, len(labels))
+
+                if show_number > 0:
+                    start = random.randint(0, len(labels) - show_number)
+                    for gt, pred, confidence in zip(labels[start:start + show_number], preds[start:start + show_number], confidence_score[start:start + show_number]):
+                        if 'Attn' in opt.Prediction:
+                            gt = gt[:gt.find('[s]')]
+                            pred = pred[:pred.find('[s]')]
+
+                        predicted_result_log += f'{gt:25s} | {pred:25s} | {confidence:0.4f}\t{str(pred == gt)}\n'
+                else:
+                    predicted_result_log += 'No validation samples to display\n'
+
                 predicted_result_log += f'{dashed_line}'
                 print(predicted_result_log)
                 log.write(predicted_result_log + '\n')
-                print('validation time: ', time.time()-t1)
-                t1=time.time()
+                print('validation time: ', time.time() - t1)
+                t1 = time.time()
         # save model per 1e+4 iter.
         if (i + 1) % 1e+4 == 0:
             torch.save(
-                model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i+1}.pth')
+                model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i + 1}.pth')
 
         if i == opt.num_iter:
             print('end the training')
             sys.exit()
-        print("Iteration:", i)
         i += 1

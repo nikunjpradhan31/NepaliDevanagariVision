@@ -1,39 +1,40 @@
 # number: '0123456789'
 # symbol: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~ €"
 # lang_char: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-number: '०१२३४५६७८९'
-symbol: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~।॥—₹₨‘’“”…"
+number: '०१२३४५६७८९0123456789'
+symbol: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{}~।॥—‘’“”… "
 lang_char: 'अआइईउऊऋएऐओऔअंअःकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसहक्षत्रज्ञािीुूृेैोौंःँॅॉ'
+
 # number: '०१२३४५६७८९0123456789'
 # symbol: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~।॥—₹₨‘’“”…"
 # lang_char: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzअआइईउऊऋएऐओऔअंअःकखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसहक्षत्रज्ञािीुूृेैोौंःँॅॉ'
-experiment_name: 'ne'
+experiment_name: 'ne_Attn_11_17'
 train_data: 'all_data'
-valid_data: 'all_data/dataset/val'
+valid_data: 'all_data/dataset_med/val'
 manualSeed: 1111
-workers: 8
+workers: 1
 batch_size: 32 #32
-num_iter: 20000
+num_iter: 70000
 valInterval: 200
-saved_model: '' #'saved_models/en_filtered/iter_300000.pth'
+saved_model: 'saved_models/ne_Attn_11_17/iter_60000.pth' #'saved_models/en_filtered/iter_300000.pth'
 FT: False
 optim: adam # default is Adadelta
-lr: 0.0005
+lr: 0.001
 beta1: 0.9
 rho: 0.95
 eps: 0.00000001
 grad_clip: 5
 #Data processing
-select_data: 'dataset' # this is dataset folder in train_data
+select_data: 'dataset_med' # this is dataset folder in train_data
 batch_ratio: '1' 
 total_data_usage_ratio: 1.0
-batch_max_length: 100
-imgH: 64
-imgW: 1156
-rgb: False
+batch_max_length: 200
+imgH: 80
+imgW: 1220
+rgb: True
 contrast_adjust: False
-sensitive: True
-PAD: True
+sensitive: False
+PAD: False
 contrast_adjust: 0.0
 data_filtering_off: False
 # Model Architecture

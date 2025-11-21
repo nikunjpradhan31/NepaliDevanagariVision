@@ -4,10 +4,11 @@ from modules.feature_extraction import VGG_FeatureExtractor, RCNN_FeatureExtract
 from modules.sequence_modeling import BidirectionalLSTM
 from modules.prediction import Attention
 
+
 class Model(nn.Module):
 
     def __init__(self, opt):
-        super(Model, self).__init__()
+        super().__init__()
         self.opt = opt
         self.stages = {'Trans': opt.Transformation, 'Feat': opt.FeatureExtraction,
                        'Seq': opt.SequenceModeling, 'Pred': opt.Prediction}

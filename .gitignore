@@ -213,4 +213,9 @@ NepaliDevanagariText
 *.zip
 CRNN/crops
 CRNN/format_scripts/data
-CRNN/trainer/all_data
+CRNN/trainer_CRNN/all_data
+CRNN/trainer_CRNN/saved_models
+CRNN/trainer_CRNN/validation_outputs
+
+Object_Detection/runs
+s
