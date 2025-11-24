@@ -6,10 +6,10 @@ nc: 1
 names:
   0: line
 task: detect
-model: yolov8n.pt
+model: yolov11n.pt
 epochs: 100
 batch: 16
-imgsz: 960
+imgsz: 2048
 lr0: 0.01
 optimizer: SGD
 hsv_h: 0.015
