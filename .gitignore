@@ -217,7 +217,7 @@ CRNN/trainer_CRNN/all_data
 CRNN/trainer_CRNN/saved_models
 CRNN/trainer_CRNN/validation_outputs
 CNN_Detection/runs
-
+line-detection-dataset.ipynb
 *jpg
 *.jpeg
 *.png
