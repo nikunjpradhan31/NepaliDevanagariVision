@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 import logging
 
 from .model_manager import get_recognition_model, model_manager
-from ..core.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -146,10 +146,9 @@ class TextRecognitionModel:
         try:
             # Step 1: Preprocess image
             image_np = self.preprocess_image(image)
+            if image_np.dtype != np.float32:
+                image_np = image_np.astype(np.float32)            
             
-            batch_size = image_np.shape[0]
-            
-            # Step 2: Run ONNX inference
             outputs = self.model_info.session.run(
                 self.model_info.output_names,
                 {self.model_info.input_name: image_np}
@@ -157,19 +156,18 @@ class TextRecognitionModel:
             
             preds = outputs[0]  # [batch, seq_len, num_classes]
             
-            # Step 3: Apply CTC decoding
+            # Apply CTC decoding for single image
+            batch_size = image_np.shape[0]
             preds_size = np.array([preds.shape[1]] * batch_size, dtype=np.int32)
             preds_index = preds.argmax(axis=2).flatten()
             
             # Decode using CTC greedy decoder
             preds_str = self.label_converter.decode_greedy(preds_index, preds_size)
-            
-            # Update inference statistics
+            result = preds_str[0] if preds_str else ""
+
+
             inference_time = time.time() - start_time
             model_manager.update_inference_stats(self.model_name, inference_time)
-            
-            result = preds_str[0] if preds_str else ""
-            
             logger.debug(f"Text recognition completed in {inference_time:.3f}s: '{result}'")
             
             return result

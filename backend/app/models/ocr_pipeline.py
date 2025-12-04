@@ -8,7 +8,7 @@ import logging
 
 from .detection import get_detection_model
 from .recognition import get_recognition_model
-from ..core.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

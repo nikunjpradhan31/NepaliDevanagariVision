@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get(
     "/models",
-    response_model=ModelsResponse,
+    response_model=dict,
     status_code=status.HTTP_200_OK,
     summary="Get model information",
     description="Get detailed information about loaded OCR models."
@@ -41,16 +41,17 @@ async def get_models_info():
         try:
             recognition_model = get_recognition_model()
             character_set_info = recognition_model.get_character_info()
+            models_info["recognition"]["character_set"] = character_set_info
         except Exception as e:
             logger.warning("Failed to get character set info", error=str(e))
             character_set_info = {}
         
-        response = ModelsResponse(
-            models=models_info,
-            character_set_info=character_set_info
-        )
+        # response = ModelsResponse(
+        #     models=models_info,
+        #     character_set_info=character_set_info
+        # )
         
-        return response
+        return models_info
         
     except Exception as e:
         logger.error("Failed to get models info", error=str(e))

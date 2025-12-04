@@ -21,11 +21,12 @@ from app.core import settings, optimize_for_inference, get_performance_info
 from app.core.image_utils import validate_file_upload, load_image_from_bytes
 from app.models import get_ocr_pipeline, validate_image_for_ocr
 from app.models.schemas import (
-    OCRRequest, OCRResponse, BatchOCRRequest, BatchJobResponse,
-    BatchJobStatus, BatchJobResult, HealthCheckResponse, 
+    OCRRequest, OCRResponse, 
+    #BatchOCRRequest, BatchJobResponse,BatchJobStatus, BatchJobResult,
+     HealthCheckResponse, 
     ModelsResponse, ErrorResponse, ValidationError, JobStatus
 )
-from app.api import inference_router, batch_router, health_router, models_router
+from app.api import inference_router, health_router, models_router
 
 # Configure structured logging
 structlog.configure(
@@ -107,7 +108,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 application = FastAPI(
     title="OCR FastAPI Service",
-    description="Production-ready OCR service for Devanagari text detection and recognition",
+    description="OCR service for Devanagari text detection and recognition developed and managed by Nikunj Pradhan",
     version="1.0.0",
     docs_url="/docs" if settings.is_development() else None,
     redoc_url="/redoc" if settings.is_development() else None,
@@ -134,7 +135,7 @@ application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handle
 
 # Include API routes
 application.include_router(inference_router, prefix="/api/v1/ocr", tags=["inference"])
-application.include_router(batch_router, prefix="/api/v1/ocr", tags=["batch"])
+#application.include_router(batch_router, prefix="/api/v1/ocr", tags=["batch"])
 application.include_router(health_router, prefix="/api/v1", tags=["health"])
 application.include_router(models_router, prefix="/api/v1", tags=["models"])
 

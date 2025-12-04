@@ -17,8 +17,8 @@ class JobStatus(str, Enum):
 class OCRRequest(BaseModel):
     """Request model for OCR inference."""
     
-    include_masks: bool = Field(default=True, description="Whether to include mask data in response")
-    confidence_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Override default confidence threshold")
+    include_masks: bool = Field(default=False, description="Whether to include mask data in response")
+    confidence_threshold: Optional[float] = Field(default=0.5, ge=0.0, le=1.0, description="Override default confidence threshold")
     
     class Config:
         json_schema_extra = {
@@ -64,105 +64,105 @@ class OCRResponse(BaseModel):
         }
 
 
-class BatchOCRRequest(BaseModel):
-    """Request model for batch OCR processing."""
+# class BatchOCRRequest(BaseModel):
+#     """Request model for batch OCR processing."""
     
-    include_masks: bool = Field(default=True, description="Whether to include mask data in response")
-    confidence_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Override default confidence threshold")
-    priority: int = Field(default=0, ge=0, le=10, description="Job priority (0=normal, 10=highest)")
+#     include_masks: bool = Field(default=True, description="Whether to include mask data in response")
+#     confidence_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Override default confidence threshold")
+#     priority: int = Field(default=0, ge=0, le=10, description="Job priority (0=normal, 10=highest)")
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "include_masks": True,
-                "confidence_threshold": 0.5,
-                "priority": 5
-            }
-        }
+#     class Config:
+#         json_schema_extra = {
+#             "example": {
+#                 "include_masks": True,
+#                 "confidence_threshold": 0.5,
+#                 "priority": 5
+#             }
+#         }
 
 
-class BatchJobResponse(BaseModel):
-    """Response model for batch job submission."""
+# class BatchJobResponse(BaseModel):
+#     """Response model for batch job submission."""
     
-    job_id: str = Field(description="Unique job identifier")
-    status: JobStatus = Field(description="Current job status")
-    total_images: int = Field(description="Total number of images in batch")
-    submitted_at: datetime = Field(description="When the job was submitted")
+#     job_id: str = Field(description="Unique job identifier")
+#     status: JobStatus = Field(description="Current job status")
+#     total_images: int = Field(description="Total number of images in batch")
+#     submitted_at: datetime = Field(description="When the job was submitted")
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "job_id": "batch_abc123def456",
-                "status": "pending",
-                "total_images": 5,
-                "submitted_at": "2025-11-30T12:00:00Z"
-            }
-        }
+#     class Config:
+#         json_schema_extra = {
+#             "example": {
+#                 "job_id": "batch_abc123def456",
+#                 "status": "pending",
+#                 "total_images": 5,
+#                 "submitted_at": "2025-11-30T12:00:00Z"
+#             }
+#         }
 
 
-class BatchJobStatus(BaseModel):
-    """Response model for batch job status."""
+# class BatchJobStatus(BaseModel):
+#     """Response model for batch job status."""
     
-    job_id: str = Field(description="Unique job identifier")
-    status: JobStatus = Field(description="Current job status")
-    total_images: int = Field(description="Total number of images in batch")
-    processed_images: int = Field(default=0, description="Number of images processed")
-    failed_images: int = Field(default=0, description="Number of images that failed")
-    progress_percentage: float = Field(default=0.0, description="Progress percentage (0-100)")
-    created_at: datetime = Field(description="When the job was created")
-    updated_at: datetime = Field(description="When the job was last updated")
-    estimated_completion: Optional[datetime] = Field(description="Estimated completion time")
-    processing_time: Optional[float] = Field(description="Current processing time in seconds")
+#     job_id: str = Field(description="Unique job identifier")
+#     status: JobStatus = Field(description="Current job status")
+#     total_images: int = Field(description="Total number of images in batch")
+#     processed_images: int = Field(default=0, description="Number of images processed")
+#     failed_images: int = Field(default=0, description="Number of images that failed")
+#     progress_percentage: float = Field(default=0.0, description="Progress percentage (0-100)")
+#     created_at: datetime = Field(description="When the job was created")
+#     updated_at: datetime = Field(description="When the job was last updated")
+#     estimated_completion: Optional[datetime] = Field(description="Estimated completion time")
+#     processing_time: Optional[float] = Field(description="Current processing time in seconds")
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "job_id": "batch_abc123def456",
-                "status": "processing",
-                "total_images": 5,
-                "processed_images": 3,
-                "failed_images": 0,
-                "progress_percentage": 60.0,
-                "created_at": "2025-11-30T12:00:00Z",
-                "updated_at": "2025-11-30T12:01:30Z",
-                "estimated_completion": "2025-11-30T12:02:00Z",
-                "processing_time": 90.5
-            }
-        }
+#     class Config:
+#         json_schema_extra = {
+#             "example": {
+#                 "job_id": "batch_abc123def456",
+#                 "status": "processing",
+#                 "total_images": 5,
+#                 "processed_images": 3,
+#                 "failed_images": 0,
+#                 "progress_percentage": 60.0,
+#                 "created_at": "2025-11-30T12:00:00Z",
+#                 "updated_at": "2025-11-30T12:01:30Z",
+#                 "estimated_completion": "2025-11-30T12:02:00Z",
+#                 "processing_time": 90.5
+#             }
+#         }
 
 
-class BatchJobResult(BaseModel):
-    """Response model for batch job results."""
+# class BatchJobResult(BaseModel):
+#     """Response model for batch job results."""
     
-    job_id: str = Field(description="Unique job identifier")
-    status: JobStatus = Field(description="Final job status")
-    results: List[Dict[str, Any]] = Field(default_factory=list, description="OCR results for each image")
-    failed_images: List[Dict[str, Any]] = Field(default_factory=list, description="Failed image information")
-    total_processing_time: float = Field(description="Total processing time in seconds")
-    completed_at: datetime = Field(description="When the job was completed")
+#     job_id: str = Field(description="Unique job identifier")
+#     status: JobStatus = Field(description="Final job status")
+#     results: List[Dict[str, Any]] = Field(default_factory=list, description="OCR results for each image")
+#     failed_images: List[Dict[str, Any]] = Field(default_factory=list, description="Failed image information")
+#     total_processing_time: float = Field(description="Total processing time in seconds")
+#     completed_at: datetime = Field(description="When the job was completed")
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "job_id": "batch_abc123def456",
-                "status": "completed",
-                "results": [
-                    {
-                        "image_name": "document1.jpg",
-                        "ocr_result": {
-                            "image_width": 1024,
-                            "image_height": 768,
-                            "detections": [...],
-                            "total_lines": 10,
-                            "processing_time": 1.5
-                        }
-                    }
-                ],
-                "failed_images": [],
-                "total_processing_time": 7.5,
-                "completed_at": "2025-11-30T12:02:00Z"
-            }
-        }
+#     class Config:
+#         json_schema_extra = {
+#             "example": {
+#                 "job_id": "batch_abc123def456",
+#                 "status": "completed",
+#                 "results": [
+#                     {
+#                         "image_name": "document1.jpg",
+#                         "ocr_result": {
+#                             "image_width": 1024,
+#                             "image_height": 768,
+#                             "detections": [],
+#                             "total_lines": 10,
+#                             "processing_time": 1.5
+#                         }
+#                     }
+#                 ],
+#                 "failed_images": [],
+#                 "total_processing_time": 7.5,
+#                 "completed_at": "2025-11-30T12:02:00Z"
+#             }
+#         }
 
 
 class HealthCheckResponse(BaseModel):
@@ -246,8 +246,8 @@ class ModelsResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "models": {
-                    "detection": {...},
-                    "recognition": {...}
+                    "detection": {},
+                    "recognition": {}
                 },
                 "character_set_info": {
                     "character_set": "नमस्ते विश्व...",

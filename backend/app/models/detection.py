@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Tuple, Optional
 import logging
 
 from .model_manager import get_detection_model, model_manager
-from ..core.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

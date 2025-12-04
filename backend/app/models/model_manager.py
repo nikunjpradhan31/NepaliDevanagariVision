@@ -7,46 +7,15 @@ from pathlib import Path
 import logging
 from threading import Lock
 from dataclasses import dataclass
-import os
-import time
-import onnxruntime as ort
-from typing import Optional, Dict, Any, Tuple
-from pathlib import Path
-import logging
-from threading import Lock
-from dataclasses import dataclass
 from datetime import datetime
 
 # DEBUG: Add detailed logging to diagnose import issues
 import sys
-print(f"DEBUG: model_manager.py - Current working directory: {os.getcwd()}")
-print(f"DEBUG: model_manager.py - Python path: {sys.path}")
-print(f"DEBUG: model_manager.py - __name__: {__name__}")
-print(f"DEBUG: model_manager.py - __package__: {__package__}")
+# print(f"DEBUG: model_manager.py - Current working directory: {os.getcwd()}")
+# print(f"DEBUG: model_manager.py - Python path: {sys.path}")
+# print(f"DEBUG: model_manager.py - __name__: {__name__}")
+# print(f"DEBUG: model_manager.py - __package__: {__package__}")
 
-try:
-    from ..core.config import settings
-    print("DEBUG: model_manager.py - Successfully imported settings using relative import")
-except ImportError as e:
-    print(f"DEBUG: model_manager.py - Failed relative import: {e}")
-    try:
-        from core.config import settings
-        print("DEBUG: model_manager.py - Successfully imported settings using absolute import (fallback)")
-    except ImportError as e2:
-        print(f"DEBUG: model_manager.py - Failed absolute import fallback: {e2}")
-        raise
-
-try:
-    from ..core.device import get_device_for_model
-    print("DEBUG: model_manager.py - Successfully imported get_device_for_model using relative import")
-except ImportError as e:
-    print(f"DEBUG: model_manager.py - Failed relative import for device: {e}")
-    try:
-        from core.device import get_device_for_model
-        print("DEBUG: model_manager.py - Successfully imported get_device_for_model using absolute import (fallback)")
-    except ImportError as e2:
-        print(f"DEBUG: model_manager.py - Failed absolute import fallback for device: {e2}")
-        raise
 from datetime import datetime
 
 from app.core.config import settings
