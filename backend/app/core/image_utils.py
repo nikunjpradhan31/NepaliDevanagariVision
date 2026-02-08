@@ -326,5 +326,4 @@ def validate_image_quality(image: Image.Image) -> Tuple[bool, List[str]]:
     return len(warnings) == 0, warnings
 
 
-# Import io module for the functions that need it
 import io

@@ -20,7 +20,7 @@ class Attention(nn.Module):
         one_hot = one_hot.scatter_(1, input_char, 1)
         return one_hot
 
-    def forward(self, batch_H, text, is_train=True, batch_max_length=25):
+    def forward(self, batch_H, text, is_train=False, batch_max_length=25):
         """
         input:
             batch_H : contextual_feature H = hidden state of encoder. [batch_size x num_steps x num_classes]
@@ -33,7 +33,6 @@ class Attention(nn.Module):
         output_hiddens = torch.FloatTensor(batch_size, num_steps, self.hidden_size).fill_(0).to(device)
         hidden = (torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device),
                   torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device))
-
         if is_train:
             for i in range(num_steps):
                 # one-hot vectors for a i-th char. in a batch
@@ -44,8 +43,10 @@ class Attention(nn.Module):
             probs = self.generator(output_hiddens)
 
         else:
-            targets = torch.LongTensor(batch_size).fill_(0).to(device)  # [GO] token
-            probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
+            targets = torch.zeros(batch_size, dtype=torch.long, device=batch_H.device)
+            probs = torch.zeros(
+                    batch_size, num_steps, self.num_classes, device=batch_H.device
+                )
 
             for i in range(num_steps):
                 char_onehots = self._char_to_onehot(targets, onehot_dim=self.num_classes)
