@@ -11,7 +11,7 @@ import structlog
 from app.core.config import settings
 from app.core.image_utils import validate_file_upload, load_image_from_bytes, validate_image_quality
 from app.models.ocr_pipeline import get_ocr_pipeline
-from app.models.schemas import OCRRequest, OCRResponse, ValidationError
+from app.models.schemas import OCRRequest, OCRResponse, ValidationError, MultiOCRResponse
 from app.core.device import cleanup_memory
 
 logger = structlog.get_logger()
@@ -19,7 +19,7 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 
-async def process_image_file(file: UploadFile, request: OCRRequest) -> OCRResponse:
+async def process_image_file(file: UploadFile, request: OCRRequest) -> MultiOCRResponse:
     """Process uploaded image file through OCR pipeline."""
     start_time = time.time()
     
@@ -54,59 +54,60 @@ async def process_image_file(file: UploadFile, request: OCRRequest) -> OCRRespon
             )
         
         # Process first image (for real-time endpoint)
-        image = images[0]
-        
+        #image = images[0]
+        Response = []
+        for image in images:
         # Additional validation for OCR suitability
-        is_valid_image, warnings = validate_image_quality(image)
-        if not is_valid_image and settings.is_production():
-            # In production, just log warnings but continue processing
-            logger.warning("Image quality warnings", 
-                         filename=file.filename, 
-                         warnings=warnings)
-        
-        # Override confidence threshold if specified in request
-        if request.confidence_threshold is not None:
-            original_threshold = settings.detection_confidence_threshold
-            settings.detection_confidence_threshold = request.confidence_threshold
-        
-        try:
-            # Get OCR pipeline and process image
-            ocr_pipeline = get_ocr_pipeline()
+            is_valid_image, warnings = validate_image_quality(image)
+            if not is_valid_image and settings.is_production():
+                # In production, just log warnings but continue processing
+                logger.warning("Image quality warnings", 
+                            filename=file.filename, 
+                            warnings=warnings)
             
-            # Validate image for OCR
-            is_valid_for_ocr, validation_error = ocr_pipeline.validate_image(image)
-            if not is_valid_for_ocr:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={
-                        "code": "INVALID_IMAGE_FOR_OCR",
-                        "message": validation_error,
-                        "filename": file.filename
-                    }
-                )
-            
-            # Process through OCR pipeline
-            result = ocr_pipeline.process_image(image, include_masks=request.include_masks)
-            
-            processing_time = time.time() - start_time
-            
-            # Ensure processing time is recorded
-            result["processing_time"] = processing_time
-            
-            logger.info("OCR inference completed", 
-                       filename=file.filename,
-                       processing_time=processing_time,
-                       lines_detected=result["total_lines"])
-            
-            return OCRResponse(**result)
-            
-        finally:
-            # Restore original confidence threshold if it was overridden
+            # Override confidence threshold if specified in request
             if request.confidence_threshold is not None:
-                settings.detection_confidence_threshold = original_threshold
+                original_threshold = settings.detection_confidence_threshold
+                settings.detection_confidence_threshold = request.confidence_threshold
             
-            # Cleanup memory
-            cleanup_memory()
+            try:
+                # Get OCR pipeline and process image
+                ocr_pipeline = get_ocr_pipeline()
+                
+                # Validate image for OCR
+                is_valid_for_ocr, validation_error = ocr_pipeline.validate_image(image)
+                if not is_valid_for_ocr:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={
+                            "code": "INVALID_IMAGE_FOR_OCR",
+                            "message": validation_error,
+                            "filename": file.filename
+                        }
+                    )
+                
+                # Process through OCR pipeline
+                result = ocr_pipeline.process_image(image, include_masks=request.include_masks)
+                
+                processing_time = time.time() - start_time
+                
+                # Ensure processing time is recorded
+                result["processing_time"] = processing_time
+                
+                logger.info("OCR inference completed", 
+                        filename=file.filename,
+                        processing_time=processing_time,
+                        lines_detected=result["total_lines"])
+                Response.append(OCRResponse(**result))
+                
+            finally:
+                # Restore original confidence threshold if it was overridden
+                if request.confidence_threshold is not None:
+                    settings.detection_confidence_threshold = original_threshold
+                
+                # Cleanup memory
+                cleanup_memory()
+        return MultiOCRResponse(OCR=Response)
     
     except HTTPException:
         # Re-raise HTTP exceptions as-is
@@ -128,7 +129,7 @@ async def process_image_file(file: UploadFile, request: OCRRequest) -> OCRRespon
 
 @router.post(
     "/inference",
-    response_model=OCRResponse,
+    response_model=MultiOCRResponse,
     status_code=status.HTTP_200_OK,
     summary="Real-time OCR inference",
     description="Upload an image for real-time OCR processing. Supports JPEG, PNG, TIFF, and PDF formats."
@@ -147,7 +148,6 @@ async def ocr_inference(
     
     Returns OCR results with detected text lines and bounding boxes.
     """
-    # Rate limiting is handled by the limiter middleware
     return await process_image_file(file, ocr_request)
 
 

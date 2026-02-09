@@ -57,6 +57,7 @@ class OCRPipeline:
             recognized_texts = self.recognition_model.recognize_batch(crop_images)
             
             # Step 4: Combine results
+            parsed_text = "\n".join(recognized_texts)
             final_detections = []
             for i, ((crop_image, detection_info), text) in enumerate(zip(crops, recognized_texts)):
                 result = {
@@ -88,6 +89,7 @@ class OCRPipeline:
                 "detections": final_detections,
                 "total_lines": len(final_detections),
                 "processing_time": processing_time,
+                "parsed_text": parsed_text,
                 "models_used": {
                     "detection": "LineDetectionv4",
                     "recognition": "ResNetBiLSTMCTCv1"

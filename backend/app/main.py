@@ -105,7 +105,6 @@ async def lifespan(app: FastAPI):
         app_state["shutdown_event"].set()
 
 
-# Create FastAPI application
 application = FastAPI(
     title="OCR FastAPI Service",
     description="OCR service for Devanagari text detection and recognition developed and managed by Nikunj Pradhan",
@@ -115,7 +114,6 @@ application = FastAPI(
     lifespan=lifespan
 )
 
-# Add middleware
 application.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_cors_origins(),
@@ -126,7 +124,7 @@ application.add_middleware(
 
 application.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"]  # Configure appropriately for production
+    allowed_hosts=["*"]
 )
 
 # Add rate limiting

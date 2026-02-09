@@ -69,7 +69,7 @@ Response Formatting
 - **Mask visualization** support for detection debugging
 
 ### Health & Monitoring
-- **Comprehensive health checks** for models, Redis, and system resources
+- **Comprehensive health checks** for models, and system resources
 - **Performance metrics** tracking and logging
 - **Structured logging** with JSON output for production monitoring
 - **Rate limiting** and security middleware

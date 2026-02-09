@@ -38,6 +38,7 @@ class OCRResponse(BaseModel):
     total_lines: int = Field(description="Total number of detected text lines")
     processing_time: float = Field(description="Time taken for processing in seconds")
     models_used: Dict[str, str] = Field(description="Models used for processing")
+    parsed_text: str = Field(description="Concatenated parsed text from all detections")
     
     class Config:
         json_schema_extra = {
@@ -63,6 +64,40 @@ class OCRResponse(BaseModel):
             }
         }
 
+class MultiOCRResponse(BaseModel):
+    """Response model for OCR inference."""
+    
+    OCR: List[OCRResponse] = Field(description="List of OCR responses for each image in batch")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "OCR": [
+                {
+                "image_width": 1024,
+                "image_height": 768,
+                "detections": [
+                    {
+                        "line_id": 0,
+                        "box": [50, 100, 500, 130],
+                        "crop_box": [0, 85, 600, 145],
+                        "confidence": 0.95,
+                        "text": "नमस्ते विश्व",
+                        "class": 0
+                    }
+                ],
+                "total_lines": 1,
+                "processing_time": 1.234,
+                "models_used": {
+                    "detection": "LineDetectionv4",
+                    "recognition": "ResNetBiLSTMCTCv1"
+                }
+            }
+                ]
+            }
+
+
+        }
 
 # class BatchOCRRequest(BaseModel):
 #     """Request model for batch OCR processing."""
