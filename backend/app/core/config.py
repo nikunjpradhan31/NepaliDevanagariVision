@@ -40,8 +40,6 @@ class Settings(BaseSettings):
     realtime_request_timeout: int = Field(default=5, ge=1, le=300, description="Real-time request timeout in seconds")
     batch_request_timeout: int = Field(default=300, ge=60, le=1800, description="Batch request timeout in seconds")
 
-    # Redis Configuration
-    redis_url: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")
 
     # Arq Queue Configuration
     arq_queue_name: str = Field(default="ocr_queue", description="Arq queue name")

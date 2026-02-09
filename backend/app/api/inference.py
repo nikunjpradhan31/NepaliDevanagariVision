@@ -187,29 +187,30 @@ async def detect_lines_only(
         
         # Load image
         images = load_image_from_bytes(file_content, extension)
-        image = images[0]
-        
-        # Get OCR pipeline and detect lines only
-        ocr_pipeline = get_ocr_pipeline()
-        detections = ocr_pipeline.detect_only(image)
-        
-        processing_time = time.time() - start_time
-        
-        result = {
-            "image_width": image.width,
-            "image_height": image.height,
-            "detections": detections,
-            "total_lines": len(detections),
-            "processing_time": processing_time,
-            "mode": "detection_only"
-        }
-        
+        Detections = []
+        for image in images:
+            # Get OCR pipeline and detect lines only
+            ocr_pipeline = get_ocr_pipeline()
+            detections = ocr_pipeline.detect_only(image)
+            
+            processing_time = time.time() - start_time
+            
+            result = {
+                "image_width": image.width,
+                "image_height": image.height,
+                "detections": detections,
+                "total_lines": len(detections),
+                "processing_time": processing_time,
+                "mode": "detection_only"
+            }
+            Detections.append(result)
+            
         logger.info("Line detection completed", 
-                   filename=file.filename,
-                   processing_time=processing_time,
-                   lines_detected=len(detections))
-        
-        return result
+                    filename=file.filename,
+                    processing_time=processing_time,
+                    lines_detected=len(detections))
+            
+        return {"OCR": Detections}
         
     except HTTPException:
         raise

@@ -6,7 +6,6 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, status
 import structlog
 import psutil
-import redis
 
 from app.core.config import settings
 from app.models.model_manager import check_models_health, get_models_stats
@@ -17,28 +16,13 @@ logger = structlog.get_logger()
 
 router = APIRouter()
 
-# Global Redis connection for health checks
-_redis_client = None
-
-
-def get_redis_client():
-    """Get or create Redis client for health checks."""
-    global _redis_client
-    if _redis_client is None:
-        try:
-            _redis_client = redis.from_url(settings.redis_url, socket_connect_timeout=5)
-        except Exception as e:
-            logger.warning("Failed to create Redis client", error=str(e))
-            _redis_client = None
-    return _redis_client
-
 
 @router.get(
     "/health",
     response_model=HealthCheckResponse,
     status_code=status.HTTP_200_OK,
     summary="Service health check",
-    description="Comprehensive health check including models, Redis, and system status."
+    description="Comprehensive health check including models, and system status."
 )
 async def health_check():
     """
@@ -53,17 +37,7 @@ async def health_check():
         # Check model health
         models_health = check_models_health()
         
-        # Check Redis connectivity
-        redis_healthy = False
-        redis_error = None
-        try:
-            redis_client = get_redis_client()
-            if redis_client:
-                redis_client.ping()
-                redis_healthy = True
-        except Exception as e:
-            redis_error = str(e)
-            logger.warning("Redis health check failed", error=redis_error)
+
         
         # Get system information
         try:
@@ -99,23 +73,18 @@ async def health_check():
         
         # Determine overall status
         models_ok = all(models_health.values())
-        redis_ok = redis_healthy
         
         overall_status = "healthy"
         if not models_ok:
             overall_status = "degraded"
-        if not redis_ok and settings.is_production():
-            overall_status = "unhealthy"
         
         health_response = HealthCheckResponse(
             status=overall_status,
             timestamp=datetime.now(),
             models=models_health,
-            redis=redis_healthy,
             system={
                 **system_info,
                 "device": device_info,
-                "redis_error": redis_error,
                 "check_duration": time.time() - start_time
             }
         )
@@ -125,7 +94,7 @@ async def health_check():
         log_level("Health check completed", 
                  status=overall_status,
                  models_healthy=models_ok,
-                 redis_healthy=redis_ok)
+                 )
         
         return health_response
         
@@ -172,23 +141,13 @@ async def readiness_check():
         if not models_health:
             raise Exception("No models loaded")
         
-        # Check Redis (optional for readiness)
-        redis_client = get_redis_client()
-        redis_ok = False
-        if redis_client:
-            try:
-                redis_client.ping()
-                redis_ok = True
-            except:
-                pass
+       
         
-        # Service is ready if models are healthy (Redis is optional)
         if all(models_health.values()):
             return {
                 "status": "ready",
                 "timestamp": datetime.now().isoformat(),
                 "models_healthy": True,
-                "redis_healthy": redis_ok
             }
         else:
             raise Exception("Models not healthy")

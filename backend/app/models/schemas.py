@@ -206,7 +206,6 @@ class HealthCheckResponse(BaseModel):
     status: str = Field(description="Overall service status")
     timestamp: datetime = Field(description="When the health check was performed")
     models: Dict[str, bool] = Field(description="Model health status")
-    redis: bool = Field(description="Redis connection status")
     system: Dict[str, Any] = Field(description="System information")
     
     class Config:
@@ -218,7 +217,6 @@ class HealthCheckResponse(BaseModel):
                     "detection": True,
                     "recognition": True
                 },
-                "redis": True,
                 "system": {
                     "cpu_usage": 45.2,
                     "memory_usage": 67.8,
