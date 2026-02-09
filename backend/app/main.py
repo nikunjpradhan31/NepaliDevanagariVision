@@ -74,7 +74,11 @@ async def lifespan(app: FastAPI):
     
     # Optimize for inference
     optimize_for_inference()
-    
+
+    #find available models
+    settings.get_available_models_file(settings.models_dir)
+    logger.info("Available models loaded successfully")
+
     # Set startup time
     app_state["start_time"] = datetime.now()
     app_state["shutdown_event"] = asyncio.Event()

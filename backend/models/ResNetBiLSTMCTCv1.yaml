@@ -1,0 +1,6 @@
+model_name: ResNetBiLSTMCTCv1
+type: recognition
+version: 1.0
+batch_size: 1
+model_file: models/ResNetBiLSTMCTCv1.onnx
+decoder: CTC

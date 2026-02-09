@@ -1,0 +1,4 @@
+model_name: LineDetectionv4
+type: detection
+version: 4.0
+model_file: models/LineDetectionv4.onnx
