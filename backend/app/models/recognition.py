@@ -96,7 +96,7 @@ class AttnLabelConverter:
 
         return batch_text, length
 
-    def decode_greedy(self, text_index, length):
+    def decode(self, text_index, length):
         """ convert text-index into text-label. """
         texts = []
         for index, l in enumerate(length):
@@ -113,7 +113,7 @@ class TextRecognitionModel:
         self.model_name = settings.recognition_model_data["model_name"]
         self.batch_max_length = 200
         self.model_type = "recognition"
-        # Initialize label converter
+        self.converter = "CTC" if settings.recognition_model_data["decoder"] == "CTC" else "Attn"
         self.label_converter = CTCLabelConverter(self.character_set) if settings.recognition_model_data["decoder"] == "CTC" else AttnLabelConverter(self.character_set)
         
         # Load the model
@@ -287,13 +287,29 @@ class TextRecognitionModel:
                     preds = outputs[0]  # [batch, seq_len, num_classes]
                     
                     # Apply CTC decoding for single image
-                    batch_size = image_np.shape[0]
-                    preds_size = np.array([preds.shape[1]] * batch_size, dtype=np.int32)
-                    preds_index = preds.argmax(axis=2).flatten()
-                    
-                    # Decode using CTC greedy decoder
-                    preds_str = self.label_converter.decode_greedy(preds_index, preds_size)
-                    result = preds_str[0] if preds_str else ""
+                    if self.converter == "CTC":
+                        batch_size = image_np.shape[0]
+                        preds_size = np.array([preds.shape[1]] * batch_size, dtype=np.int32)
+                        preds_index = preds.argmax(axis=2).flatten()
+                        
+                        # Decode using CTC greedy decoder
+                        preds_str = self.label_converter.decode_greedy(preds_index, preds_size)
+                        result = preds_str[0] if preds_str else ""
+                    elif self.converter == "Attn":
+                        batch_size = image_np.shape[0]
+                        preds_index = preds[:, :self.batch_max_length, :].argmax(axis=2)
+                        preds_size = np.array([preds_index.shape[1]] * batch_size, dtype=np.int32)
+                        
+                        preds_str = self.label_converter.decode(preds_index, preds_size)
+                        
+                        result = ""
+                        if preds_str:
+                            pred = preds_str[0]
+                            # Remove the start token [GO] and truncate at [s]
+                            if pred.startswith('[GO]'):
+                                pred = pred[len('[GO]'):]
+                            eos_pos = pred.find('[s]')
+                            result = pred[:eos_pos] if eos_pos != -1 else pred
                     results.append(result)
                     
                 except Exception as e:
