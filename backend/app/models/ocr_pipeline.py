@@ -9,7 +9,7 @@ import logging
 from .detection import get_detection_model
 from .recognition import get_recognition_model
 from app.core.config import settings
-
+from .model_manager import model_manager
 logger = logging.getLogger(__name__)
 
 
@@ -19,7 +19,19 @@ class OCRPipeline:
     def __init__(self):
         self.detection_model = get_detection_model()
         self.recognition_model = get_recognition_model()
-    
+
+    def reload_models(self) -> None:
+        """Reload both detection and recognition models."""
+        try:
+            logger.info("Reloading detection model")
+            self.detection_model.reload()
+            logger.info("Reloading recognition model")
+            self.recognition_model.reload()
+            logger.info("Models reloaded successfully")
+        except Exception as e:
+            logger.error(f"Error reloading models: {str(e)}")
+            raise
+
     def process_image(self, image: Image.Image, include_masks: bool = True) -> Dict[str, Any]:
         """
         Process an image through the complete OCR pipeline.
@@ -91,8 +103,8 @@ class OCRPipeline:
                 "processing_time": processing_time,
                 "parsed_text": parsed_text,
                 "models_used": {
-                    "detection": "LineDetectionv4",
-                    "recognition": "ResNetBiLSTMCTCv1"
+                    "detection": self.detection_model.model_name,
+                    "recognition": self.recognition_model.model_name
                 }
             }
             
@@ -163,12 +175,12 @@ class OCRPipeline:
             
             return {
                 "detection_model": {
-                    "name": "LineDetectionv4",
+                    "name": self.detection_model.model_name,
                     "healthy": self.detection_model.is_healthy(),
                     "stats": detection_stats
                 },
                 "recognition_model": {
-                    "name": "ResNetBiLSTMCTCv1", 
+                    "name": self.recognition_model.model_name, 
                     "healthy": self.recognition_model.is_healthy(),
                     "stats": recognition_stats
                 },

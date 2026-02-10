@@ -35,7 +35,7 @@ from .schemas import (
     ModelInfo as SchemaModelInfo,
     ModelsResponse,
     ErrorResponse,
-    ValidationError
+    ValidationError,
 )
 
 __all__ = [
@@ -72,5 +72,5 @@ __all__ = [
     "SchemaModelInfo",
     "ModelsResponse",
     "ErrorResponse",
-    "ValidationError"
+    "ValidationError",
 ]

@@ -3,66 +3,55 @@ from typing import Dict, Any
 
 from fastapi import APIRouter, HTTPException, status
 import structlog
-
+from typing import Literal
 from app.models.model_manager import get_models_stats
 from app.models.detection import get_detection_model
 from app.models.recognition import get_recognition_model
-from app.models.schemas import ModelsResponse, ModelInfo
+from app.models.schemas import ModelsResponse, ModelInfo, ModelSelectionResponse
+from app.core.config import settings
 from app.models import get_ocr_pipeline
 logger = structlog.get_logger()
 
 router = APIRouter()
 
-
 @router.get(
     "/models",
-    response_model=dict,
+    response_model=ModelsResponse,
     status_code=status.HTTP_200_OK,
     summary="Get model information",
-    description="Get detailed information about loaded OCR models."
+    description="Get detailed information about loaded OCR models.",
 )
 async def get_models_info():
     """
     Get comprehensive information about all loaded models.
-    
-    Returns:
-        ModelsResponse: Model information and statistics
     """
     try:
-        # Get model statistics
-        models_stats = get_models_stats()
-        
-        # Convert to ModelInfo format
-        models_info = {}
-        for model_name, stats in models_stats.items():
-            models_info[model_name] = stats
-        
-        # Get character set info from recognition model
-        try:
-            recognition_model = get_recognition_model()
-            character_set_info = recognition_model.get_character_info()
-            models_info["recognition"]["character_set"] = character_set_info
-        except Exception as e:
-            logger.warning("Failed to get character set info", error=str(e))
-            character_set_info = {}
-        
-        # response = ModelsResponse(
-        #     models=models_info,
-        #     character_set_info=character_set_info
-        # )
-        
-        return models_info
-        
+        models_info = get_models_stats()
+        character_info = {}
+        # Safely attach recognition character set
+        if models_info.get("recognition"):
+            try:
+                recognition_model = get_recognition_model()
+                character_info = recognition_model.get_character_info()
+                print("character info: ",character_info)
+            except Exception as e:
+                logger.warning(
+                    "Failed to get recognition character set",
+                    error=str(e),
+                )
+
+        return ModelsResponse(models=models_info,character_set_info=character_info)
+
+
     except Exception as e:
         logger.error("Failed to get models info", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
+                "message": "Failed to retrieve model information",
                 "error": str(e),
-                "message": "Failed to retrieve model information"
-            }
+            },
         )
-
 
 @router.get(
     "/models/{model_name}",
@@ -203,6 +192,36 @@ async def get_pipeline_stats():
 
 
 @router.get(
+    "/pipeline/available-models",
+    status_code=status.HTTP_200_OK,
+    summary="Get available models",
+    description="Get a list of available detection and recognition models."
+)
+async def get_available_models():
+    """
+    Get a list of available detection and recognition models.
+    """
+    try:
+        available_detection_models = settings.available_detection_models
+        available_recognition_models = settings.available_recognition_models
+        
+        return {
+            "available_detection_models": available_detection_models,
+            "recognition_models": available_recognition_models
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get available models", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": str(e),
+                "message": "Failed to retrieve available models"
+            }
+        )
+
+
+@router.get(
     "/pipeline/character-set",
     response_model=dict,
     status_code=status.HTTP_200_OK,
@@ -231,4 +250,66 @@ async def get_character_set_info():
                 "error": str(e),
                 "message": "Failed to retrieve character set information"
             }
+        )
+ 
+
+@router.put(
+    "/pipeline/select-models",
+    response_model=ModelSelectionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Select models for OCR pipeline",
+    description="Select specific detection and recognition models for the OCR pipeline.",
+)
+async def select_models_for_pipeline(
+    model: str,
+    pipeline_type: Literal["detection", "recognition"] = "recognition",
+):
+    available_models = (
+        settings.available_detection_models
+        if pipeline_type == "detection"
+        else settings.available_recognition_models
+    )
+
+    selected_model = next(
+        (m for m in available_models if m.get("model_name") == model),
+        None,
+    )
+
+    if selected_model is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": f"{pipeline_type.capitalize()} model not found",
+                "model": model,
+            },
+        )
+
+    try:
+        if pipeline_type == "detection":
+            settings.detection_model_data = selected_model
+        else:
+            settings.recognition_model_data = selected_model
+
+        ocr_pipeline = get_ocr_pipeline()
+        ocr_pipeline.reload_models()
+        print(settings.recognition_model_data)
+        return {
+            "message": f"Selected {pipeline_type} model successfully",
+            "model_name": model,
+            "pipeline_type": pipeline_type,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Failed to select model for pipeline",
+            model=model,
+            pipeline_type=pipeline_type,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "message": "Failed to reload OCR pipeline",
+                "error": str(e),
+            },
         )

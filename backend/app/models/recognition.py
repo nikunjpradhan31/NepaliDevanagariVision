@@ -52,25 +52,95 @@ class CTCLabelConverter:
         
         return texts
 
+class AttnLabelConverter:
+    """ Convert between text-label and text-index """
 
+    def __init__(self, character: str):
+        # character (str): set of the possible characters.
+        # [GO] for the start token of the attention decoder. [s] for end-of-sentence token.
+        list_token = ['[GO]', '[s]']  # ['[s]','[UNK]','[PAD]','[GO]']
+        list_character = list(character)
+        self.character = list_token + list_character
+        self.character_list = self.character
+        self.dict = {}
+        for i, char in enumerate(self.character):
+            # print(i, char)
+            self.dict[char] = i
+
+    def encode(self, text, batch_max_length=25):
+        """
+        Convert text-label into text-index using NumPy only.
+
+        input:
+            text: list of strings, length = batch_size
+            batch_max_length: max length of text label in the batch (default 25)
+
+        output:
+            batch_text: np.ndarray of shape [batch_size, max_length + 2]
+                        index 0 is [GO], padded with [GO] after [s]
+            length: np.ndarray of shape [batch_size], includes [s]
+        """
+        length = np.array([len(s) + 1 for s in text], dtype=np.int32)  # +1 for [s]
+
+        batch_max_length += 1  # +1 for [s]
+        batch_size = len(text)
+
+        # Initialize with [GO] token index (assumed to be 0, same as original)
+        batch_text = np.zeros((batch_size, batch_max_length + 1), dtype=np.int64)
+
+        for i, t in enumerate(text):
+            chars = list(t)
+            chars.append('[s]')
+            indices = [self.dict[char] for char in chars]
+            batch_text[i, 1:1 + len(indices)] = np.array(indices, dtype=np.int64)
+
+        return batch_text, length
+
+    def decode_greedy(self, text_index, length):
+        """ convert text-index into text-label. """
+        texts = []
+        for index, l in enumerate(length):
+            text = ''.join([self.character_list[i] for i in text_index[index, :]])
+            texts.append(text)
+        return texts
+    
 class TextRecognitionModel:
     """Wrapper for CRNN-based text recognition model."""
     
     def __init__(self):
         self.input_size = settings.recognition_input_size
         self.character_set = settings.recognition_character_set
-        self.model_name = "recognition"
+        self.model_name = settings.recognition_model_data["model_name"]
         self.batch_max_length = 200
-        
+        self.model_type = "recognition"
         # Initialize label converter
-        self.label_converter = CTCLabelConverter(self.character_set)
+        self.label_converter = CTCLabelConverter(self.character_set) if settings.recognition_model_data["decoder"] == "CTC" else AttnLabelConverter(self.character_set)
         
         # Load the model
         self.model_info = model_manager.load_model(
             self.model_name,
-            str(settings.get_recognition_model_path())
+            str(settings.get_recognition_model_path()),
+            self.model_type
         )
     
+    def reload(self) -> None:
+        logger.info("Reloading recognition model")
+        self.model_name = settings.recognition_model_data["model_name"]
+        self.model_info = model_manager.load_model(
+            self.model_name,
+            str(settings.get_recognition_model_path()),
+            self.model_type,
+            force_reload=True
+        )
+
+        self.label_converter = (
+            CTCLabelConverter(self.character_set)
+            if settings.recognition_model_data["decoder"] == "CTC"
+            else AttnLabelConverter(self.character_set)
+        )
+
+        logger.info("Recognition model reloaded successfully")
+
     def center_and_resize_image(self, img: Image.Image, target_size: tuple = None) -> Image.Image:
         """
         Resize the image to fit inside target_size while maintaining aspect ratio.

@@ -18,14 +18,28 @@ class LineDetectionModel:
     def __init__(self):
         self.confidence_threshold = settings.detection_confidence_threshold
         self.input_size = settings.detection_input_size
-        self.model_name = "detection"
-        
+        self.model_name = settings.detection_model_data["model_name"]
+        self.model_type = "detection"
         # Load the model
         self.model_info = model_manager.load_model(
             self.model_name,
-            str(settings.get_detection_model_path())
+            str(settings.get_detection_model_path()),self.model_type
         )
     
+    def reload(self) -> None:
+        """Reload the detection model."""
+        try:
+            logger.info("Reloading detection model")
+            self.model_name = settings.detection_model_data["model_name"]
+            self.model_info = model_manager.load_model(
+                self.model_name,
+                str(settings.get_detection_model_path()), self.model_type,force_reload=True
+            )
+            logger.info("Detection model reloaded successfully")
+        except Exception as e:
+            logger.error(f"Error reloading detection model: {str(e)}")
+            raise
+
     def letterbox(self, img: Image.Image, new_shape: Tuple[int, int] = None) -> Tuple[Image.Image, int, int, int, int, float]:
         """
         Resize image while maintaining aspect ratio using letterboxing.

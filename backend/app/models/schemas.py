@@ -1,5 +1,5 @@
 """Pydantic models for OCR FastAPI service request/response validation."""
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
 from enum import Enum
@@ -98,6 +98,12 @@ class MultiOCRResponse(BaseModel):
 
 
         }
+
+
+class ModelSelectionResponse(BaseModel):
+    message: str
+    model_name: str
+    pipeline_type: Literal["detection", "recognition"]
 
 # class BatchOCRRequest(BaseModel):
 #     """Request model for batch OCR processing."""
@@ -231,7 +237,8 @@ class ModelInfo(BaseModel):
     
     name: str = Field(description="Model name")
     path: str = Field(description="Model file path")
-    healthy: bool = Field(description="Model health status")
+    type: str = Field(description="Model type (detection or recognition)")
+    is_healthy: bool = Field(description="Model health status")
     loaded_at: str = Field(description="When the model was loaded")
     last_used: str = Field(description="When the model was last used")
     inference_count: int = Field(description="Number of inferences performed")

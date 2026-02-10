@@ -6,7 +6,8 @@ import yaml
 from pydantic import Field, validator
 from pydantic_settings import SettingsConfigDict, BaseSettings
 
-
+DetectionModelData = {"model_name": "LineDetectionv4", "type": "detection", "version": "4.0", "model_file": "models/LineDetectionv4.onnx"}
+RecognitionModelData = {"model_name": "ResNetBiLSTMCTCv1", "type": "recognition", "version": "1.0", "model_file": "models/ResNetBiLSTMCTCv1.onnx","decoder": "CTC"}
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
@@ -27,13 +28,17 @@ class Settings(BaseSettings):
 
     # Model Paths
     models_dir: str = Field(default="models", description="Directory containing model YAML files")
-    detection_model_path: str = Field(default="models/LineDetectionv4.onnx", description="Path to detection model")
-    recognition_model_path: str = Field(default="models/ResNetBiLSTMCTCv1.onnx", description="Path to recognition model")
+    # detection_model_path: str = Field(default="models/LineDetectionv4.onnx", description="Path to detection model")
+    # recognition_model_path: str = Field(default="models/ResNetBiLSTMCTCv1.onnx", description="Path to recognition model")
+    # detection_model_name: str = Field(default="LineDetectionv4", description="Name of the current detection model")
+    # recognition_model_name: str = Field(default="ResNetBiLSTMCTCv1", description="Name of the current recognition model")
 
+    detection_model_data: dict = Field(default=DetectionModelData, description="Metadata for the current detection model")
+    recognition_model_data: dict = Field(default=RecognitionModelData, description="Metadata for the current recognition model")
     # Available Models
 
-    available_detection_models: List[dict] = Field(default=[{"model_name": "LineDetectionv4", "type": "detection", "version": "4.0", "model_file": "models/LineDetectionv4.onnx"}], description="List of available detection models")
-    available_recognition_models: List[dict] = Field(default=[{"model_name": "ResNetBiLSTMCTCv1", "type": "recognition", "version": "1.0", "model_file": "models/ResNetBiLSTMCTCv1.onnx", "decoder": "CTC"}], description="List of available recognition models")
+    available_detection_models: List[dict] = Field(default=[DetectionModelData], description="List of available detection models")
+    available_recognition_models: List[dict] = Field(default=[RecognitionModelData], description="List of available recognition models")
 
     # Processing Configuration
     detection_confidence_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="Detection confidence threshold")
@@ -114,12 +119,12 @@ class Settings(BaseSettings):
 
     def get_detection_model_path(self) -> Path:
         """Get absolute path to detection model."""
-        return Path(self.detection_model_path).resolve()
+        return Path(self.detection_model_data["model_file"]).resolve()
 
     def get_recognition_model_path(self) -> Path:
         """Get absolute path to recognition model."""
-        return Path(self.recognition_model_path).resolve()
-
+        return Path(self.recognition_model_data["model_file"]).resolve()
+    
     def is_development(self) -> bool:
         """Check if running in development mode."""
         return self.environment == "development"

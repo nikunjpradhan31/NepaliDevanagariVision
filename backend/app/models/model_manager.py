@@ -30,6 +30,7 @@ class ModelInfo:
     """Information about a loaded model."""
     name: str
     path: Path
+    type: str
     session: ort.InferenceSession
     input_name: str
     output_names: list
@@ -49,24 +50,27 @@ class ModelManager:
         self._health_check_interval = settings.health_check_interval
         self._last_health_check = time.time()
     
-    def load_model(self, model_name: str, model_path: str, providers: Optional[list] = None) -> ModelInfo:
-        """Load a model and cache it."""
-        if model_name in self._models:
+    def load_model(self, model_name: str, model_path: str, model_type: str,
+                providers: Optional[list] = None, force_reload: bool = False) -> ModelInfo:
+
+        if model_name in self._models and not force_reload:
             model_info = self._models[model_name]
             model_info.last_used = datetime.now()
-            logger.info(f"Model {model_name} already loaded, returning cached version")
             return model_info
-        
         # Create lock for this model
         if model_name not in self._locks:
             self._locks[model_name] = Lock()
         
         # Double-check locking pattern for thread safety
         with self._locks[model_name]:
-            if model_name in self._models:
-                model_info = self._models[model_name]
-                model_info.last_used = datetime.now()
-                return model_info
+            if model_name in self._models and not force_reload:
+                return self._models[model_name]
+
+            if force_reload and model_name in self._models:
+                del self._models[model_name]
+                import gc
+                gc.collect()
+
             
             logger.info(f"Loading model {model_name} from {model_path}")
             
@@ -114,7 +118,10 @@ class ModelManager:
                     input_name=input_name,
                     output_names=output_names,
                     loaded_at=datetime.now(),
-                    last_used=datetime.now()
+                    last_used=datetime.now(),
+                    type=model_type,
+                    inference_count=0,
+                    total_inference_time=0.0
                 )
                 
                 self._models[model_name] = model_info
@@ -145,9 +152,11 @@ class ModelManager:
                 del self._models[model_name]
                 if model_name in self._locks:
                     del self._locks[model_name]
-                
+                import gc
+                gc.collect()
                 logger.info(f"Unloaded model {model_name}")
                 return True
+            
             except Exception as e:
                 logger.error(f"Failed to unload model {model_name}: {str(e)}")
                 return False
@@ -168,9 +177,10 @@ class ModelManager:
             if model_info.inference_count > 0:
                 avg_inference_time = model_info.total_inference_time / model_info.inference_count
             
-            stats[model_name] = {
-                "name": model_info.name,
+            stats[model_info.type] = {
+                "name": model_name,
                 "path": str(model_info.path),
+                "type": model_info.type,
                 "loaded_at": model_info.loaded_at.isoformat(),
                 "last_used": model_info.last_used.isoformat(),
                 "inference_count": model_info.inference_count,
@@ -268,6 +278,7 @@ class ModelManager:
             return {
                 "name": model_info.name,
                 "path": str(model_info.path),
+                "type": model_info.type,
                 "loaded_at": model_info.loaded_at.isoformat(),
                 "last_used": model_info.last_used.isoformat(),
                 "inference_count": model_info.inference_count,
@@ -291,16 +302,18 @@ model_manager = ModelManager()
 def load_detection_model() -> ModelInfo:
     """Load the detection model."""
     return model_manager.load_model(
-        "detection",
-        str(settings.get_detection_model_path())
+        settings.detection_model_data["model_name"],
+        str(settings.get_detection_model_path()),
+        "detection"
     )
 
 
 def load_recognition_model() -> ModelInfo:
     """Load the recognition model."""
     return model_manager.load_model(
-        "recognition",
-        str(settings.get_recognition_model_path())
+        settings.recognition_model_data["model_name"],
+        str(settings.get_recognition_model_path()),
+        "recognition"
     )
 
 
