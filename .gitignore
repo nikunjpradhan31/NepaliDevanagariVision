@@ -222,3 +222,5 @@ line-detection-dataset.ipynb
 *.jpeg
 *.png
 
+
+inference/all_data
