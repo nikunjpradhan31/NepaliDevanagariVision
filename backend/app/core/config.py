@@ -28,13 +28,9 @@ class Settings(BaseSettings):
 
     # Model Paths
     models_dir: str = Field(default="models", description="Directory containing model YAML files")
-    # detection_model_path: str = Field(default="models/LineDetectionv4.onnx", description="Path to detection model")
-    # recognition_model_path: str = Field(default="models/ResNetBiLSTMCTCv1.onnx", description="Path to recognition model")
-    # detection_model_name: str = Field(default="LineDetectionv4", description="Name of the current detection model")
-    # recognition_model_name: str = Field(default="ResNetBiLSTMCTCv1", description="Name of the current recognition model")
-
     detection_model_data: dict = Field(default=DetectionModelData, description="Metadata for the current detection model")
     recognition_model_data: dict = Field(default=RecognitionModelData, description="Metadata for the current recognition model")
+    
     # Available Models
 
     available_detection_models: List[dict] = Field(default=[DetectionModelData], description="List of available detection models")
@@ -159,11 +155,11 @@ class Settings(BaseSettings):
         for yaml_file in yaml_files:
             with open(os.path.join(dir, yaml_file), "r") as f:
                 try:
-                    model_config = yaml.safe_load(f)
-                    if model_config.get("type") == "detection":
-                        available_detection_models.append(model_config)
-                    elif model_config.get("type") == "recognition":
-                        available_recognition_models.append(model_config)
+                    model_config_file = yaml.safe_load(f)
+                    if model_config_file.get("type") == "detection":
+                        available_detection_models.append(model_config_file)
+                    elif model_config_file.get("type") == "recognition":
+                        available_recognition_models.append(model_config_file)
                 except yaml.YAMLError as e:
                     raise ValueError(f"Error parsing YAML file {yaml_file}: {e}")
         self.available_detection_models = available_detection_models
