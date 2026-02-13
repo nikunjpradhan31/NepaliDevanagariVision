@@ -343,6 +343,7 @@ dependencies:
       - safetensors==0.7.0
       - scikit-image==0.25.2
       - scipy==1.15.3
+      - seaborn==0.13.2
       - setuptools==80.9.0
       - shapely==2.1.2
       - snapy==1.2.9
