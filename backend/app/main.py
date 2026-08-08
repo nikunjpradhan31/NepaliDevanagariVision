@@ -11,20 +11,17 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 import structlog
 import time
 
 from app.core import settings, optimize_for_inference, get_performance_info
 from app.core.image_utils import validate_file_upload, load_image_from_bytes
+from app.core.model_downloader import ensure_models_downloaded
 from app.models import get_ocr_pipeline, validate_image_for_ocr
 from app.models.schemas import (
-    OCRRequest, OCRResponse, 
-    #BatchOCRRequest, BatchJobResponse,BatchJobStatus, BatchJobResult,
+    OCRRequest, OCRResponse,
      HealthCheckResponse, 
-    ModelsResponse, ErrorResponse, ValidationError, JobStatus
+    ModelsResponse, ErrorResponse, ValidationError
 )
 from app.api import inference_router, health_router, models_router
 
@@ -54,9 +51,6 @@ logging.basicConfig(
     format="%(message)s",
 )
 
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
-
 # Global variables for cleanup
 app_state = {
     "start_time": None,
@@ -74,6 +68,9 @@ async def lifespan(app: FastAPI):
     
     # Optimize for inference
     optimize_for_inference()
+
+    # Download models on startup (if URLs are configured)
+    ensure_models_downloaded()
 
     #find available models
     settings.get_available_models_file(settings.models_dir)
@@ -131,13 +128,8 @@ application.add_middleware(
     allowed_hosts=["*"]
 )
 
-# Add rate limiting
-application.state.limiter = limiter
-application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
 # Include API routes
 application.include_router(inference_router, prefix="/api/v1/ocr", tags=["inference"])
-#application.include_router(batch_router, prefix="/api/v1/ocr", tags=["batch"])
 application.include_router(health_router, prefix="/api/v1", tags=["health"])
 application.include_router(models_router, prefix="/api/v1", tags=["models"])
 

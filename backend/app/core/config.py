@@ -30,7 +30,13 @@ class Settings(BaseSettings):
     models_dir: str = Field(default="models", description="Directory containing model YAML files")
     detection_model_data: dict = Field(default=DetectionModelData, description="Metadata for the current detection model")
     recognition_model_data: dict = Field(default=RecognitionModelData, description="Metadata for the current recognition model")
-    
+
+    # Model Download (optional; downloaded into the container on startup)
+    detection_model_url: str = Field(default="", description="URL to download the detection model from")
+    recognition_model_url: str = Field(default="", description="URL to download the recognition model from")
+    recognition_attn_model_url: str = Field(default="", description="URL to download the attention recognition model from")
+    model_download_timeout: int = Field(default=300, ge=10, description="Timeout in seconds for model downloads")
+
     # Available Models
 
     available_detection_models: List[dict] = Field(default=[DetectionModelData], description="List of available detection models")
@@ -41,20 +47,12 @@ class Settings(BaseSettings):
     crop_padding_x: int = Field(default=100, ge=0, description="Horizontal padding for crops")
     crop_padding_y: int = Field(default=15, ge=0, description="Vertical padding for crops")
     max_file_size: int = Field(default=10485760, ge=1024, description="Maximum file size in bytes (10MB)")
-    max_batch_size: int = Field(default=20, ge=1, le=100, description="Maximum batch size")
 
     # Request Timeouts
     realtime_request_timeout: int = Field(default=5, ge=1, le=300, description="Real-time request timeout in seconds")
-    batch_request_timeout: int = Field(default=300, ge=60, le=1800, description="Batch request timeout in seconds")
 
-
-    # Arq Queue Configuration
-    arq_queue_name: str = Field(default="ocr_queue", description="Arq queue name")
-    arq_max_jobs: int = Field(default=100, ge=1, description="Maximum jobs in queue")
-
-    # Security and Rate Limiting
+    # Security
     allowed_origins: List[str] = Field(default=["http://localhost:3000"], description="Allowed CORS origins")
-    rate_limit_requests_per_minute: int = Field(default=60, ge=1, description="Rate limit per minute")
 
     # Image Processing
     allowed_image_extensions: List[str] = Field(
@@ -164,7 +162,44 @@ class Settings(BaseSettings):
                     raise ValueError(f"Error parsing YAML file {yaml_file}: {e}")
         self.available_detection_models = available_detection_models
         self.available_recognition_models = available_recognition_models
-        
+
+    def get_model_downloads(self) -> List[Dict[str, str]]:
+        """Get the list of models to download on startup.
+
+        Returns a list of ``{"name", "url", "file"}`` dicts derived from the
+        configured model data and download URLs.
+        """
+        downloads = []
+
+        if self.detection_model_url:
+            downloads.append({
+                "name": self.detection_model_data.get("model_name", "detection"),
+                "url": self.detection_model_url,
+                "file": self.detection_model_data.get("model_file", ""),
+            })
+
+        if self.recognition_model_url:
+            downloads.append({
+                "name": self.recognition_model_data.get("model_name", "recognition"),
+                "url": self.recognition_model_url,
+                "file": self.recognition_model_data.get("model_file", ""),
+            })
+
+        # Optionally download the second (attention) recognition model.
+        attn_yaml = next(
+            (m for m in self.available_recognition_models
+             if m.get("decoder") == "Attn"),
+            None,
+        )
+        if self.recognition_attn_model_url and attn_yaml:
+            downloads.append({
+                "name": attn_yaml.get("model_name", "recognition_attn"),
+                "url": self.recognition_attn_model_url,
+                "file": attn_yaml.get("model_file", ""),
+            })
+
+        return downloads
+
 
 # Global settings instance
 settings = Settings()

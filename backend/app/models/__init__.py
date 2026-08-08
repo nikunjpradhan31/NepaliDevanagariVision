@@ -24,13 +24,8 @@ from .recognition import CTCLabelConverter, TextRecognitionModel, get_recognitio
 
 # Import from schemas (avoiding name conflicts with ModelManagerInfo)
 from .schemas import (
-    JobStatus,
     OCRRequest,
     OCRResponse,
-    # BatchOCRRequest,
-    # BatchJobResponse,
-    # BatchJobStatus,
-    # BatchJobResult,
     HealthCheckResponse,
     ModelInfo as SchemaModelInfo,
     ModelsResponse,
@@ -61,13 +56,8 @@ __all__ = [
     "TextRecognitionModel",
     "get_recognition_model",
     # schemas
-    "JobStatus",
     "OCRRequest",
     "OCRResponse",
-    # "BatchOCRRequest",
-    # "BatchJobResponse",
-    # "BatchJobStatus",
-    # "BatchJobResult",
     "HealthCheckResponse",
     "SchemaModelInfo",
     "ModelsResponse",

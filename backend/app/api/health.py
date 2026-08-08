@@ -8,7 +8,7 @@ import structlog
 import psutil
 
 from app.core.config import settings
-from app.models.model_manager import check_models_health, get_models_stats
+from app.models.model_manager import check_models_health
 from app.core.device import get_performance_info, get_memory_info
 from app.models.schemas import HealthCheckResponse
 
@@ -163,68 +163,3 @@ async def readiness_check():
             }
         )
 
-
-@router.get(
-    "/metrics",
-    response_model=dict,
-    status_code=status.HTTP_200_OK,
-    summary="Service metrics",
-    description="Get service metrics for monitoring."
-)
-async def get_metrics():
-    """Get service metrics."""
-    try:
-        # Get model statistics
-        models_stats = get_models_stats()
-        
-        # Get system metrics
-        cpu_percent = psutil.cpu_percent()
-        memory = psutil.virtual_memory()
-        
-        # Calculate totals
-        total_inferences = sum(
-            stats.get("inference_count", 0) 
-            for stats in models_stats.values()
-        )
-        
-        total_avg_time = 0
-        if models_stats:
-            total_avg_time = sum(
-                stats.get("avg_inference_time", 0) 
-                for stats in models_stats.values()
-            ) / len(models_stats)
-        
-        metrics = {
-            "timestamp": datetime.now().isoformat(),
-            "system": {
-                "cpu_percent": cpu_percent,
-                "memory_percent": memory.percent,
-                "memory_used_mb": memory.used / (1024 * 1024),
-                "memory_total_mb": memory.total / (1024 * 1024)
-            },
-            "models": {
-                "total_inferences": total_inferences,
-                "average_inference_time": total_avg_time,
-                "models_loaded": len(models_stats),
-                "models": {
-                    name: {
-                        "inferences": stats.get("inference_count", 0),
-                        "avg_time": stats.get("avg_inference_time", 0),
-                        "healthy": stats.get("is_healthy", False)
-                    }
-                    for name, stats in models_stats.items()
-                }
-            }
-        }
-        
-        return metrics
-        
-    except Exception as e:
-        logger.error("Failed to get metrics", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            }
-        )

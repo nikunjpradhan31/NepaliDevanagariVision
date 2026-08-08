@@ -1,2 +1,1 @@
-conda init && conda activate OCRService
-python -m app.main
+uvicorn app.main:app --host 0.0.0.0 --port 10007
