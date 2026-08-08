@@ -47,7 +47,7 @@ A lightweight FastAPI service for Devanagari text detection and recognition usin
 
 3. **Run the service**:
    ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 10007
+   uvicorn app.main:app --host 0.0.0.0 --port 2083
    ```
 
 ## Docker
@@ -144,7 +144,6 @@ pytest app/tests/ -v
 
 ## Performance
 
-- **Target Response Time**: 5 seconds for single images
 - **Supported Formats**: JPEG, PNG, TIFF, PDF
 - **Maximum File Size**: 10MB per image
 
