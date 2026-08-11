@@ -29,7 +29,6 @@ class Model(nn.Module):
         else:
             raise Exception('No FeatureExtraction module specified')
         self.FeatureExtraction_output = opt.output_channel  # int(imgH/16-1) * 512
-        self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
 
         """ Sequence modeling"""
         if opt.SequenceModeling == 'BiLSTM':
@@ -56,8 +55,8 @@ class Model(nn.Module):
 
         """ Feature extraction stage """
         visual_feature = self.FeatureExtraction(input)
-        visual_feature = self.AdaptiveAvgPool(visual_feature.permute(0, 3, 1, 2))  # [b, c, h, w] -> [b, w, c, h]
-        visual_feature = visual_feature.squeeze(3)
+        visual_feature = visual_feature.permute(0, 3, 1, 2)  # [b, c, h, w] -> [b, w, c, h]
+        visual_feature = visual_feature.mean(dim=-1)  # [b, w, c]
 
         """ Sequence modeling stage """
         if self.stages['Seq'] == 'BiLSTM':
