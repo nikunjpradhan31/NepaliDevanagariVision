@@ -19,10 +19,7 @@ class Attention(nn.Module):
         one_hot = one_hot.scatter_(1, input_char, 1)
         return one_hot
 
-    def forward(self, batch_H, text, is_train=False, batch_max_length=25):
-        if is_train:
-            return self._forward_train(batch_H, text, batch_max_length)
-        else:
+    def forward(self, batch_H, text, batch_max_length=25):
             return self._forward_inference(batch_H, batch_max_length)
 
     def _forward_train(self, batch_H, text, batch_max_length):
@@ -45,16 +42,17 @@ class Attention(nn.Module):
         hidden = (batch_H.new_zeros(batch_H.size(0), self.hidden_size),
                   batch_H.new_zeros(batch_H.size(0), self.hidden_size))
         targets = batch_H.new_zeros(batch_H.size(0), dtype=torch.long)
-        probs = batch_H.new_zeros(batch_H.size(0), num_steps, self.num_classes)
 
+        probs_list = []
         for i in range(num_steps):
             char_onehots = self._char_to_onehot(targets, onehot_dim=self.num_classes)
             hidden, alpha = self.attention_cell(hidden, batch_H, char_onehots)
             probs_step = self.generator(hidden[0])
-            probs[:, i, :] = probs_step
+            probs_list.append(probs_step.unsqueeze(1))
             _, next_input = probs_step.max(1)
             targets = next_input
 
+        probs = torch.cat(probs_list, dim=1)
         return probs
 
 

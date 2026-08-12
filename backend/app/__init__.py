@@ -1,8 +1,8 @@
-from .main import application 
+from .main import app 
 # from fastapi.openapi.utils import get_openapi
 
 
-# for route in application.routes:
+# for route in app.routes:
 #     print(route)
 #     try:
 #         get_openapi(
@@ -15,4 +15,4 @@ from .main import application
 #         raise
 
 
-__all__ = ["application"]
+__all__ = ["app"]

@@ -106,7 +106,7 @@ async def lifespan(app: FastAPI):
         app_state["shutdown_event"].set()
 
 
-application = FastAPI(
+app = FastAPI(
     title="OCR FastAPI Service",
     description="OCR service for Devanagari text detection and recognition developed and managed by Nikunj Pradhan",
     version="1.0.0",
@@ -115,7 +115,7 @@ application = FastAPI(
     lifespan=lifespan
 )
 
-application.add_middleware(
+app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
@@ -123,18 +123,18 @@ application.add_middleware(
     allow_headers=["*"],
 )
 
-application.add_middleware(
+app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"]
 )
 
 # Include API routes
-application.include_router(inference_router, prefix="/api/v1/ocr", tags=["inference"])
-application.include_router(health_router, prefix="/api/v1", tags=["health"])
-application.include_router(models_router, prefix="/api/v1", tags=["models"])
+app.include_router(inference_router, prefix="/api/v1/ocr", tags=["inference"])
+app.include_router(health_router, prefix="/api/v1", tags=["health"])
+app.include_router(models_router, prefix="/api/v1", tags=["models"])
 
 
-@application.get("/", response_model=dict)
+@app.get("/", response_model=dict)
 async def root():
     """Root endpoint with service information."""
     return {
@@ -147,7 +147,7 @@ async def root():
     }
 
 
-@application.get("/api/v1/status", response_model=dict)
+@app.get("/api/v1/status", response_model=dict)
 async def service_status():
     """Service status endpoint."""
     uptime = None
@@ -164,7 +164,7 @@ async def service_status():
     }
 
 
-@application.exception_handler(HTTPException)
+@app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Custom HTTP exception handler."""
     logger.warning("HTTP exception occurred", 
@@ -185,7 +185,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
-@application.exception_handler(Exception)
+@app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """General exception handler."""
     logger.error("Unhandled exception occurred",
@@ -229,7 +229,8 @@ setup_signal_handlers()
 
 if __name__ == "__main__":
     import uvicorn
-    
+
+    #uvicorn.run("main:app", host="0.0.0.0", port=7001, reload=True)
     # Configure uvicorn
     uvicorn_config = {
         "host": settings.host,
@@ -243,4 +244,4 @@ if __name__ == "__main__":
         uvicorn_config["reload_dirs"] = ["app"]
     
     logger.info("Starting uvicorn server", config=uvicorn_config)
-    uvicorn.run("app.main:application", **uvicorn_config)
+    uvicorn.run("main:app", **uvicorn_config)
