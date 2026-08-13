@@ -39,6 +39,7 @@ class ModelInfo:
     inference_count: int = 0
     total_inference_time: float = 0.0
     is_healthy: bool = True
+    is_dynamic_batch: bool = True
 
 
 class ModelManager:
@@ -110,6 +111,11 @@ class ModelManager:
                 input_name = session.get_inputs()[0].name
                 output_names = [output.name for output in session.get_outputs()]
                 
+                # Detect dynamic vs static batch dimension
+                input_shape = session.get_inputs()[0].shape
+                batch_dim = input_shape[0] if input_shape else None
+                is_dynamic_batch = not isinstance(batch_dim, int) or batch_dim <= 0
+                
                 # Create model info
                 model_info = ModelInfo(
                     name=model_name,
@@ -121,15 +127,17 @@ class ModelManager:
                     last_used=datetime.now(),
                     type=model_type,
                     inference_count=0,
-                    total_inference_time=0.0
+                    total_inference_time=0.0,
+                    is_dynamic_batch=is_dynamic_batch
                 )
                 
                 self._models[model_name] = model_info
                 
                 logger.info(f"Successfully loaded model {model_name}")
-                logger.info(f"Input: {input_name}")
+                logger.info(f"Input: {input_name}, shape: {input_shape}")
                 logger.info(f"Outputs: {output_names}")
                 logger.info(f"Providers: {providers}")
+                logger.info(f"Dynamic batch: {is_dynamic_batch}")
                 
                 return model_info
                 
@@ -186,6 +194,7 @@ class ModelManager:
                 "inference_count": model_info.inference_count,
                 "avg_inference_time": avg_inference_time,
                 "is_healthy": model_info.is_healthy,
+                "is_dynamic_batch": model_info.is_dynamic_batch,
                 "input_name": model_info.input_name,
                 "output_names": model_info.output_names
             }
@@ -284,6 +293,7 @@ class ModelManager:
                 "inference_count": model_info.inference_count,
                 "avg_inference_time": model_info.total_inference_time / max(model_info.inference_count, 1),
                 "is_healthy": model_info.is_healthy,
+                "is_dynamic_batch": model_info.is_dynamic_batch,
                 "inputs": input_info,
                 "outputs": output_info,
                 "providers": model_info.session.get_providers()
@@ -296,35 +306,6 @@ class ModelManager:
 
 # Global model manager instance
 model_manager = ModelManager()
-
-
-# Convenience functions
-def load_detection_model() -> ModelInfo:
-    """Load the detection model."""
-    return model_manager.load_model(
-        settings.detection_model_data["model_name"],
-        str(settings.get_detection_model_path()),
-        "detection"
-    )
-
-
-def load_recognition_model() -> ModelInfo:
-    """Load the recognition model."""
-    return model_manager.load_model(
-        settings.recognition_model_data["model_name"],
-        str(settings.get_recognition_model_path()),
-        "recognition"
-    )
-
-
-def get_detection_model() -> Optional[ModelInfo]:
-    """Get the loaded detection model."""
-    return model_manager.get_model("detection")
-
-
-def get_recognition_model() -> Optional[ModelInfo]:
-    """Get the loaded recognition model."""
-    return model_manager.get_model("recognition")
 
 
 def check_models_health() -> Dict[str, bool]:

@@ -1,8 +1,6 @@
 """Configuration management for OCR FastAPI service."""
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-import os
-import yaml
 from pydantic import Field, validator
 from pydantic_settings import SettingsConfigDict, BaseSettings
 
@@ -34,13 +32,10 @@ class Settings(BaseSettings):
     # Model Download (optional; downloaded into the container on startup)
     detection_model_url: str = Field(default="", description="URL to download the detection model from")
     recognition_model_url: str = Field(default="", description="URL to download the recognition model from")
-    recognition_attn_model_url: str = Field(default="", description="URL to download the attention recognition model from")
     model_download_timeout: int = Field(default=300, ge=10, description="Timeout in seconds for model downloads")
 
-    # Available Models
-
-    available_detection_models: List[dict] = Field(default=[DetectionModelData], description="List of available detection models")
-    available_recognition_models: List[dict] = Field(default=[RecognitionModelData], description="List of available recognition models")
+    # Batch Processing
+    recognition_max_batch_size: int = Field(default=4, ge=1, description="Maximum batch size for recognition inference")
 
     # Processing Configuration
     detection_confidence_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="Detection confidence threshold")
@@ -139,30 +134,6 @@ class Settings(BaseSettings):
         """Get allowed image extensions as lowercase list."""
         return [ext.lower().lstrip(".") for ext in self.allowed_image_extensions]
 
-    def get_available_models_file(self, dir: Optional[str] = None) -> None:
-        """Get list of available detection models."""
-        if not os.path.exists(dir):
-            raise NotADirectoryError(f"Invalid directory: {dir}")
-        yaml_files = [f for f in os.listdir(dir) if f.endswith(".yaml")]
-        if not yaml_files:
-            raise FileNotFoundError(f"No YAML files found in directory: {dir}")
-        
-        available_detection_models = []
-        available_recognition_models = []
-
-        for yaml_file in yaml_files:
-            with open(os.path.join(dir, yaml_file), "r") as f:
-                try:
-                    model_config_file = yaml.safe_load(f)
-                    if model_config_file.get("type") == "detection":
-                        available_detection_models.append(model_config_file)
-                    elif model_config_file.get("type") == "recognition":
-                        available_recognition_models.append(model_config_file)
-                except yaml.YAMLError as e:
-                    raise ValueError(f"Error parsing YAML file {yaml_file}: {e}")
-        self.available_detection_models = available_detection_models
-        self.available_recognition_models = available_recognition_models
-
     def get_model_downloads(self) -> List[Dict[str, str]]:
         """Get the list of models to download on startup.
 
@@ -183,19 +154,6 @@ class Settings(BaseSettings):
                 "name": self.recognition_model_data.get("model_name", "recognition"),
                 "url": self.recognition_model_url,
                 "file": self.recognition_model_data.get("model_file", ""),
-            })
-
-        # Optionally download the second (attention) recognition model.
-        attn_yaml = next(
-            (m for m in self.available_recognition_models
-             if m.get("decoder") == "Attn"),
-            None,
-        )
-        if self.recognition_attn_model_url and attn_yaml:
-            downloads.append({
-                "name": attn_yaml.get("model_name", "recognition_attn"),
-                "url": self.recognition_attn_model_url,
-                "file": attn_yaml.get("model_file", ""),
             })
 
         return downloads

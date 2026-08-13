@@ -8,10 +8,6 @@ from .model_manager import (
     ModelInfo as ModelManagerInfo,
     ModelManager,
     model_manager,
-    load_detection_model,
-    load_recognition_model,
-    get_detection_model,
-    get_recognition_model,
     check_models_health,
     get_models_stats
 )
@@ -41,10 +37,6 @@ __all__ = [
     "ModelManagerInfo",
     "ModelManager",
     "model_manager",
-    "load_detection_model",
-    "load_recognition_model", 
-    "get_detection_model",
-    "get_recognition_model",
     "check_models_health",
     "get_models_stats",
     # ocr_pipeline

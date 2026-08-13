@@ -6,7 +6,7 @@ from PIL import Image
 from typing import List, Dict, Any, Tuple, Optional
 import logging
 
-from .model_manager import get_detection_model, model_manager
+from .model_manager import model_manager
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -25,20 +25,6 @@ class LineDetectionModel:
             self.model_name,
             str(settings.get_detection_model_path()),self.model_type
         )
-    
-    def reload(self) -> None:
-        """Reload the detection model."""
-        try:
-            logger.info("Reloading detection model")
-            self.model_name = settings.detection_model_data["model_name"]
-            self.model_info = model_manager.load_model(
-                self.model_name,
-                str(settings.get_detection_model_path()), self.model_type,force_reload=True
-            )
-            logger.info("Detection model reloaded successfully")
-        except Exception as e:
-            logger.error(f"Error reloading detection model: {str(e)}")
-            raise
 
     def letterbox(self, img: Image.Image, new_shape: Tuple[int, int] = None) -> Tuple[Image.Image, int, int, int, int, float]:
         """

@@ -5,7 +5,7 @@ from PIL import Image
 from typing import List, Optional, Dict, Any
 import logging
 
-from .model_manager import get_recognition_model, model_manager
+from .model_manager import model_manager
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -113,6 +113,7 @@ class TextRecognitionModel:
         self.model_name = settings.recognition_model_data["model_name"]
         self.batch_max_length = 200
         self.model_type = "recognition"
+        self.max_batch_size = settings.recognition_max_batch_size
         self.converter = "CTC" if settings.recognition_model_data["decoder"] == "CTC" else "Attn"
         self.label_converter = CTCLabelConverter(self.character_set) if settings.recognition_model_data["decoder"] == "CTC" else AttnLabelConverter(self.character_set)
         
@@ -122,24 +123,6 @@ class TextRecognitionModel:
             str(settings.get_recognition_model_path()),
             self.model_type
         )
-    
-    def reload(self) -> None:
-        logger.info("Reloading recognition model")
-        self.model_name = settings.recognition_model_data["model_name"]
-        self.model_info = model_manager.load_model(
-            self.model_name,
-            str(settings.get_recognition_model_path()),
-            self.model_type,
-            force_reload=True
-        )
-
-        self.label_converter = (
-            CTCLabelConverter(self.character_set)
-            if settings.recognition_model_data["decoder"] == "CTC"
-            else AttnLabelConverter(self.character_set)
-        )
-
-        logger.info("Recognition model reloaded successfully")
 
     def center_and_resize_image(self, img: Image.Image, target_size: tuple = None) -> Image.Image:
         """
@@ -201,6 +184,40 @@ class TextRecognitionModel:
         
         return image_np
     
+    def _preprocess_batch(self, images: List[Image.Image]) -> np.ndarray:
+        """Preprocess multiple images and stack into a single batch tensor."""
+        arrays = []
+        for image in images:
+            processed_pil = self.center_and_resize_image(image, self.input_size)
+            image_np = np.array(processed_pil).astype(np.float32) / 255.0
+            mean = np.array([0.485, 0.456, 0.406])
+            std = np.array([0.229, 0.224, 0.225])
+            image_np = (image_np - mean) / std
+            image_np = np.transpose(image_np, (2, 0, 1))
+            arrays.append(image_np)
+        return np.stack(arrays, axis=0)
+    
+    def _decode_single(self, preds: np.ndarray) -> str:
+        """Decode a single prediction from the batch output."""
+        if self.converter == "CTC":
+            preds_size = np.array([preds.shape[0]], dtype=np.int32)
+            preds_index = preds.argmax(axis=1).flatten()
+            preds_str = self.label_converter.decode_greedy(preds_index, preds_size)
+            return preds_str[0] if preds_str else ""
+        else:
+            preds_index = preds[:self.batch_max_length, :].argmax(axis=1)
+            preds_size = np.array([preds_index.shape[0]], dtype=np.int32)
+            preds_str = self.label_converter.decode(
+                np.expand_dims(preds_index, 0), preds_size
+            )
+            if preds_str:
+                pred = preds_str[0]
+                if pred.startswith('[GO]'):
+                    pred = pred[len('[GO]'):]
+                eos_pos = pred.find('[s]')
+                return pred[:eos_pos] if eos_pos != -1 else pred
+            return ""
+    
     def recognize_text(self, image: Image.Image) -> str:
         """
         Recognize text from a cropped text line image.
@@ -248,7 +265,7 @@ class TextRecognitionModel:
     
     def recognize_batch(self, images: List[Image.Image]) -> List[str]:
         """
-        Recognize text from multiple images.
+        Recognize text from multiple images using true batch inference.
         
         Args:
             images: List of PIL Images containing text lines
@@ -262,67 +279,40 @@ class TextRecognitionModel:
             if not images:
                 return []
             
-            # Preprocess all images
-            processed_arrays = []
-            for image in images:
-                array = self.preprocess_image(image)
-                processed_arrays.append(array)
+            max_batch = self.max_batch_size
+            is_dynamic = self.model_info.is_dynamic_batch
+            all_results = []
             
-            # Since ONNX model can only handle single images, process each image individually
-            results = []
-            for i, (image, image_np) in enumerate(zip(images, processed_arrays)):
-                try:
-                    # Ensure data type is float32 for ONNX compatibility
-                    if image_np.dtype != np.float32:
-                        image_np = image_np.astype(np.float32)
-                    
-                    logger.debug(f"Processing image {i+1}/{len(images)} - shape: {image_np.shape}, dtype: {image_np.dtype}")
-                    
-                    # Run ONNX inference on single image
-                    outputs = self.model_info.session.run(
-                        self.model_info.output_names,
-                        {self.model_info.input_name: image_np}
-                    )
-                    
-                    preds = outputs[0]  # [batch, seq_len, num_classes]
-                    
-                    # Apply CTC decoding for single image
-                    if self.converter == "CTC":
-                        batch_size = image_np.shape[0]
-                        preds_size = np.array([preds.shape[1]] * batch_size, dtype=np.int32)
-                        preds_index = preds.argmax(axis=2).flatten()
-                        
-                        # Decode using CTC greedy decoder
-                        preds_str = self.label_converter.decode_greedy(preds_index, preds_size)
-                        result = preds_str[0] if preds_str else ""
-                    elif self.converter == "Attn":
-                        batch_size = image_np.shape[0]
-                        preds_index = preds[:, :self.batch_max_length, :].argmax(axis=2)
-                        preds_size = np.array([preds_index.shape[1]] * batch_size, dtype=np.int32)
-                        
-                        preds_str = self.label_converter.decode(preds_index, preds_size)
-                        
-                        result = ""
-                        if preds_str:
-                            pred = preds_str[0]
-                            # Remove the start token [GO] and truncate at [s]
-                            if pred.startswith('[GO]'):
-                                pred = pred[len('[GO]'):]
-                            eos_pos = pred.find('[s]')
-                            result = pred[:eos_pos] if eos_pos != -1 else pred
-                    results.append(result)
-                    
-                except Exception as e:
-                    logger.error(f"Error processing image {i+1}/{len(images)}: {str(e)}")
-                    results.append("")  # Append empty string for failed recognition
+            for i in range(0, len(images), max_batch):
+                chunk = images[i:i + max_batch]
+                original_count = len(chunk)
+                pad_count = 0
+                
+                if not is_dynamic and len(chunk) < max_batch:
+                    pad_count = max_batch - len(chunk)
+                    chunk = chunk + [chunk[-1]] * pad_count
+                
+                batch = self._preprocess_batch(chunk)
+                if batch.dtype != np.float32:
+                    batch = batch.astype(np.float32)
+                
+                outputs = self.model_info.session.run(
+                    self.model_info.output_names,
+                    {self.model_info.input_name: batch}
+                )
+                
+                preds = outputs[0]
+                
+                for j in range(original_count):
+                    result = self._decode_single(preds[j])
+                    all_results.append(result)
             
-            # Update inference statistics
             inference_time = time.time() - start_time
             model_manager.update_inference_stats(self.model_name, inference_time)
             
-            logger.info(f"Sequential text recognition completed in {inference_time:.3f}s for {len(images)} images")
+            logger.info(f"Batch text recognition completed in {inference_time:.3f}s for {len(images)} images")
             
-            return results
+            return all_results
             
         except Exception as e:
             logger.error(f"Error during batch text recognition: {str(e)}")
