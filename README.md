@@ -1,6 +1,6 @@
 # Nepali Devanagari OCR System
 
-A comprehensive **Optical Character Recognition (OCR) system for Nepali Devanagari script** that combines deep learning models with a robust FastAPI service infrastructure.
+A comprehensive **Optical Character Recognition (OCR) system for Nepali Devanagari script** that combines deep learning models with a inferencing service.
 
 ## Project Overview
 
@@ -16,26 +16,6 @@ This project provides a complete end-to-end solution for recognizing Nepali text
 ### Model Architecture- **Detection Model**: YOLOv8 segmentation variant exporting 300 predictions with prototype masks
 - **Recognition Model**: ResNet backbone + BiLSTM + CTC decoder supporting 70+ Devanagari character classes
 - **Character Set**: Complete Devanagari script including numerals (०१२३४५६७८९), consonants, vowels, matras, punctuation
-
-### Development Infrastructure
-
-**CNN Detection Module** (`CNN_Detection/`)
-- YOLOv11n-based configuration for text line detection
-- Configurable training parameters (1024x1024 input, 100 epochs, SGD optimizer)
-- Training notebook with complete pipeline integration
-
-**CRNN Training System** (`CRNN/trainer_CRNN/`)
-- Complete PyTorch training pipeline with data loading and preprocessing
-- Support for both CTC and Attention-based decoders
-- Validation framework with accuracy metrics and normalized edit distance
-- Model checkpointing and best model selection based on validation performance
-- Batch balanced dataset training with configurable parameters
-
-**Inference System** (`inference/`)
-- **ONNX Runtime optimization** for production deployment
-- **Complete preprocessing pipeline** with letterboxing and normalization
-- **CTC/Attention decoding** with multiple strategies (greedy, beam search, word beam search)
-- **Visualization tools** for detection results and intermediate processing steps
 
 ## Technical Architecture
 
@@ -100,36 +80,22 @@ Response Formatting
 - **Multiple decoder support** (CTC, Attention, Beam Search)
 - **Validation metrics**: Character Error Rate (CER), Word Error Rate (WER), normalized edit distance
 
-<!-- ### Model Management
-- **Version control** for model checkpoints
-- **Lazy loading** to optimize startup time
-- **Health monitoring** for model integrity
-- **A/B testing** capability for model comparisons -->
-<!-- 
-## 📊 Performance Benchmarks
+## Performance Benchmarks
 
 ### Current Capabilities
 - **Line Detection Accuracy**: YOLOv8-based segmentation with high precision
 - **Text Recognition**: Supports complex Devanagari sequences with matras
-- **Processing Throughput**: ~40 pages/minute (single worker)
-- **Batch Processing**: Up to 20 images per batch
+- **Processing Throughput**: ~25 pages/minute (single worker)
+- **Batch Processing**: Up to 16 images per batch
 - **Response Time**: <5 seconds for typical documents
 
 ### Quality Metrics
-- **Character Recognition**: Multi-class classification for 70+ character types
+- **Character Recognition**: Multi-class classification for 132+ character types
 - **Sequence Modeling**: BiLSTM for temporal pattern recognition
 - **CTC Decoding**: Optimal path finding for sequence alignment
 - **Confidence Scoring**: Per-character and per-sequence confidence metrics -->
 <!-- 
-## 🚀 Getting Started
-
-### Quick Start (Backend Service)
-```bash
-cd backend
-docker-compose up --build
-# Access API at http://localhost:8000
-# View documentation at http://localhost:8000/docs
-```
+## Getting Started
 
 ### Local Development
 ```bash
@@ -137,7 +103,7 @@ docker-compose up --build
 cd backend
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+python main.py
 
 # Training (CRNN)
 cd CRNN/trainer_CRNN
@@ -162,19 +128,13 @@ curl -X POST "http://localhost:8000/api/v1/ocr/batch" \
 curl http://localhost:8000/api/v1/health
 ``` -->
 
-<!-- ## 🎯 Use Cases
+<!-- ## Use Cases
 
 ### Document Digitization
 - **Printed books and newspapers** in Nepali Devanagari script
 - **Historical documents** and manuscripts
 - **Administrative documents** and forms
 - **Academic papers** and research materials
-
-### Handwriting Recognition
-- **Educational assessments** and student work
-- **Handwritten notes** and correspondence
-- **Calligraphy** and artistic text
-- **Administrative forms** with handwritten entries
 
 ### Digital Archives
 - **Searchable text archives** for Nepali content
@@ -188,7 +148,6 @@ curl http://localhost:8000/api/v1/health
 - **GPU Acceleration** with CUDA/TensorRT optimization
 - **Advanced Post-processing** with spell checking and grammar validation
 - **Web Interface** for interactive OCR processing
-- **Batch Processing API** for large document collections
 - **Mobile Application** for on-device OCR
 
 ### Research Directions
@@ -220,28 +179,10 @@ NepaliDevanagariVision/
 └── README.md                 # This documentation
 ```
 
-<!-- ## 🤝 Contributing
-
-This project welcomes contributions in several areas:
-- **Dataset expansion** with diverse Nepali text samples
-- **Model optimization** and architecture improvements
-- **API enhancements** and new feature development
-- **Performance optimization** and deployment improvements
-- **Documentation** and example creation -->
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgments
-
-This OCR system combines cutting-edge research with practical implementation:
-- **YOLOv11** for state-of-the-art object detection and segmentation
-- **CRNN Architecture** for robust text recognition
-- **ONNX Runtime** for optimized model inference
-- **FastAPI** for modern, high-performance web services
-- **PyTorch** for flexible deep learning research and development
-
 ---
 
-**Built by Nikunj Pradhan** - A comprehensive solution making Nepali Devanagari text accessible, searchable, and usable in digital formats through advanced OCR technology.
+**Built by Nikunj Pradhan** - A comprehensive solution making Nepali Devanagari text accessible, searchable, and usable in digital formats through OCR technology.
